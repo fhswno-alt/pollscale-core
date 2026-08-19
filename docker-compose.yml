@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pollscale
+      POSTGRES_PASSWORD: pollscale
+      POSTGRES_DB: pollscale
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pollscale"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pollscale
+      MINIO_ROOT_PASSWORD: pollscale-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+
+  api:
+    build: ./api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pollscale:pollscale@db:5432/pollscale
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PUBLIC_BASE_URL: http://localhost:8000
+      AUTO_SEED: "true"
+      ALLOW_DEV_AUTH: "true"
+      MEDIA_DIR: /data/media
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-pollscale}
+      S3_REGION: ${S3_REGION:-fsn1}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/data/media
+
+volumes:
+  pgdata:
+  minio:
+  media:
