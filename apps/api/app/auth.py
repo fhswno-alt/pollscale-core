@@ -9,7 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.handles import HandleError, unique_legal_handle, validate_handle
+from app.handles import unique_legal_handle, validate_handle
 from app.models import User
 
 APPLE_ISSUER = "https://appleid.apple.com"

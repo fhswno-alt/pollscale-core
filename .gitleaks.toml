@@ -1,0 +1,8 @@
+title = "Pollscale"
+
+[allowlist]
+description = "Example env placeholders and lockfiles"
+paths = [
+  '''(^|/)\.env\.example$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+]

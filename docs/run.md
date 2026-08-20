@@ -27,6 +27,8 @@ Onboarding and For You: [onboarding.md](onboarding.md) · [ranking.md](ranking.m
 
 Analytics (PostHog + Slack + 18:00 Europe/London digests): [analytics.md](analytics.md).
 
+CI path filters and jobs: [ci.md](ci.md).
+
 ```bash
 docker compose --profile analytics up --build
 # PostHog UI http://localhost:8010

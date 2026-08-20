@@ -24,7 +24,7 @@ pnpm --filter @pollscale/admin dev
 
 API: `http://localhost:8000` (later `https://api.pollscale.com`). Web does not host votes.
 
-More: [docs/run.md](docs/run.md) · [docs/onboarding.md](docs/onboarding.md) · [docs/ranking.md](docs/ranking.md) · [docs/notifications.md](docs/notifications.md) · [docs/admin.md](docs/admin.md) · [docs/analytics.md](docs/analytics.md)
+More: [docs/run.md](docs/run.md) · [docs/onboarding.md](docs/onboarding.md) · [docs/ranking.md](docs/ranking.md) · [docs/notifications.md](docs/notifications.md) · [docs/admin.md](docs/admin.md) · [docs/analytics.md](docs/analytics.md) · [docs/ci.md](docs/ci.md)
 
 ```bash
 cd apps/api && pytest

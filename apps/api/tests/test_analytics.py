@@ -3,7 +3,6 @@ from zoneinfo import ZoneInfo
 
 from app.analytics import FUNNEL_EVENTS, capture_posthog, digest_body
 from app.config import get_settings
-from tests.conftest import headers
 
 LONDON = ZoneInfo("Europe/London")
 

@@ -1,0 +1,42 @@
+# Shared root files are repeated so each job fans out.
+# App-only paths stay isolated. See docs/ci.md.
+
+api:
+  - apps/api/**
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - package.json
+  - .github/workflows/**
+  - .github/path-filters.yml
+  - docker-compose.yml
+  - .gitleaks.toml
+
+web:
+  - apps/web/**
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - package.json
+  - .github/workflows/**
+  - .github/path-filters.yml
+  - docker-compose.yml
+  - .gitleaks.toml
+
+admin:
+  - apps/admin/**
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - package.json
+  - .github/workflows/**
+  - .github/path-filters.yml
+  - docker-compose.yml
+  - .gitleaks.toml
+
+mobile:
+  - apps/mobile/**
+  - pnpm-lock.yaml
+  - pnpm-workspace.yaml
+  - package.json
+  - .github/workflows/**
+  - .github/path-filters.yml
+  - docker-compose.yml
+  - .gitleaks.toml
