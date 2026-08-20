@@ -4,10 +4,10 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 1
     groups:
-      actions-minor-patch:
+      actions:
         patterns: ["*"]
-        update-types: [minor, patch]
 
   - package-ecosystem: npm
     directories:
@@ -17,16 +17,16 @@ updates:
       - /apps/mobile
     schedule:
       interval: weekly
+    open-pull-requests-limit: 1
     groups:
-      npm-minor-patch:
+      npm:
         patterns: ["*"]
-        update-types: [minor, patch]
 
   - package-ecosystem: uv
     directory: /apps/api
     schedule:
       interval: weekly
+    open-pull-requests-limit: 1
     groups:
-      uv-minor-patch:
+      uv:
         patterns: ["*"]
-        update-types: [minor, patch]
