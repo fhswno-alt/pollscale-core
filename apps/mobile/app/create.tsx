@@ -17,7 +17,7 @@ import { SignInSheet } from "../src/components/SignInSheet";
 import { TopicChip } from "../src/components/TopicChip";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
-import type { Topic } from "../src/lib/types";
+import type { Topic, TopicNode } from "../src/lib/types";
 import { colors, fonts, radius } from "../src/theme";
 
 type DraftOption = { label: string; image_url: string | null; local?: string };
@@ -37,9 +37,13 @@ export default function CreateScreen() {
 
   useEffect(() => {
     if (!session.deviceId) return;
-    api.topics(session.deviceId, session.token).then((list) => {
+    api.taxonomy(session.deviceId).then((nodes: TopicNode[]) => {
+      const list: Topic[] = nodes.flatMap((parent) => [
+        parent,
+        ...parent.children.map((child) => ({ ...child, following: false })),
+      ]);
       setTopics(list);
-      setTopic((current) => current ?? list[0] ?? null);
+      setTopic((current) => current ?? list.find((item) => item.parent_id) ?? list[0] ?? null);
     });
   }, [session.deviceId, session.token]);
 

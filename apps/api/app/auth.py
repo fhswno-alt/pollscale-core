@@ -35,6 +35,8 @@ def create_access_token(user_id: str) -> str:
 def decode_access_token(token: str) -> str:
     settings = get_settings()
     payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+    if payload.get("role"):
+        raise AuthError("invalid token")
     sub = payload.get("sub")
     if not sub:
         raise AuthError("invalid token")
@@ -158,7 +160,6 @@ def verify_google_token(id_token: str) -> dict[str, Any]:
     }
 
 
-def is_admin(user: User) -> bool:
-    if not user.email:
-        return False
-    return user.email.lower() in get_settings().admin_email_set
+def is_admin(_user: User) -> bool:
+    """Consumer accounts are never admins. Admin lives on /admin with its own table."""
+    return False

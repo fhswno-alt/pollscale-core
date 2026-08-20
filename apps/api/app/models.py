@@ -1,7 +1,7 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,10 @@ class User(Base):
     handle: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     handle_set: Mapped[bool] = mapped_column(Boolean, default=False)
     display_name: Mapped[str] = mapped_column(String(80))
+    first_name: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    date_of_birth: Mapped[date | None] = mapped_column(Date, nullable=True)
+    city: Mapped[str | None] = mapped_column(String(80), nullable=True)
+    onboarded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     provider: Mapped[str] = mapped_column(String(20), index=True)
     provider_subject: Mapped[str] = mapped_column(String(255))
@@ -34,6 +38,17 @@ class User(Base):
     polls: Mapped[list["Poll"]] = relationship(back_populates="author")
 
 
+class AdminUser(Base):
+    __tablename__ = "admin_users"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    email: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    password_hash: Mapped[str] = mapped_column(String(255))
+    totp_secret: Mapped[str] = mapped_column(String(64))
+    totp_confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class Topic(Base):
     __tablename__ = "topics"
 
@@ -41,6 +56,7 @@ class Topic(Base):
     slug: Mapped[str] = mapped_column(String(40), unique=True, index=True)
     name: Mapped[str] = mapped_column(String(40))
     icon: Mapped[str] = mapped_column(String(16), default="")
+    parent_id: Mapped[str | None] = mapped_column(ForeignKey("topics.id"), nullable=True, index=True)
 
 
 class Poll(Base):
@@ -51,6 +67,7 @@ class Poll(Base):
     topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id"), index=True)
     question: Mapped[str] = mapped_column(String(240))
     question_image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    city_tag: Mapped[str | None] = mapped_column(String(80), nullable=True)
     status: Mapped[str] = mapped_column(String(24), default="live", index=True)
     moderation: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
@@ -130,6 +147,48 @@ class UserBlock(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     blocker_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
     blocked_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class UserInterest(Base):
+    __tablename__ = "user_interests"
+    __table_args__ = (UniqueConstraint("user_id", "topic_id", name="uq_user_interest"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id"), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PollFeedback(Base):
+    __tablename__ = "poll_feedback"
+    __table_args__ = (UniqueConstraint("user_id", "poll_id", name="uq_poll_feedback"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    poll_id: Mapped[str] = mapped_column(ForeignKey("polls.id"), index=True)
+    kind: Mapped[str] = mapped_column(String(24), index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PollDwell(Base):
+    __tablename__ = "poll_dwells"
+    __table_args__ = (UniqueConstraint("user_id", "poll_id", name="uq_poll_dwell"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    poll_id: Mapped[str] = mapped_column(ForeignKey("polls.id"), index=True)
+    seconds: Mapped[float] = mapped_column(Float, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PollImpression(Base):
+    __tablename__ = "poll_impressions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    user_id: Mapped[str] = mapped_column(ForeignKey("users.id"), index=True)
+    poll_id: Mapped[str] = mapped_column(ForeignKey("polls.id"), index=True)
+    parent_topic_id: Mapped[str] = mapped_column(ForeignKey("topics.id"), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

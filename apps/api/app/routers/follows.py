@@ -5,9 +5,21 @@ from sqlalchemy.exc import IntegrityError
 from app.deps import DbDep, OptionalUser, UserDep
 from app.models import Topic, TopicFollow, User, UserBlock, UserFollow
 from app.notifications import notify
-from app.schemas import TopicOut, UserOut
+from app.schemas import TopicNode, TopicOut, UserOut
+from app.taxonomy import ensure_taxonomy
 
 router = APIRouter(tags=["follows"])
+
+
+def _topic_out(topic: Topic, following: bool = False) -> TopicOut:
+    return TopicOut(
+        id=topic.id,
+        slug=topic.slug,
+        name=topic.name,
+        icon=topic.icon,
+        parent_id=topic.parent_id,
+        following=following,
+    )
 
 
 @router.get("/topics", response_model=list[TopicOut])
@@ -18,16 +30,35 @@ def list_topics(db: DbDep, user: OptionalUser) -> list[TopicOut]:
         followed = set(
             db.scalars(select(TopicFollow.topic_id).where(TopicFollow.user_id == user.id))
         )
-    return [
-        TopicOut(
+    return [_topic_out(topic, topic.id in followed) for topic in topics]
+
+
+@router.get("/topics/taxonomy", response_model=list[TopicNode])
+def topic_taxonomy(db: DbDep) -> list[TopicNode]:
+    ensure_taxonomy(db)
+    db.commit()
+    topics = list(db.scalars(select(Topic).order_by(Topic.name)))
+    nodes = {
+        topic.id: TopicNode(
             id=topic.id,
             slug=topic.slug,
             name=topic.name,
             icon=topic.icon,
-            following=topic.id in followed,
+            parent_id=topic.parent_id,
         )
         for topic in topics
-    ]
+    }
+    roots: list[TopicNode] = []
+    for topic in topics:
+        node = nodes[topic.id]
+        if topic.parent_id and topic.parent_id in nodes:
+            nodes[topic.parent_id].children.append(node)
+        else:
+            roots.append(node)
+    roots.sort(key=lambda item: item.name)
+    for root in roots:
+        root.children.sort(key=lambda item: item.name)
+    return roots
 
 
 @router.post("/topics/{topic_id}/follow", response_model=TopicOut)
@@ -40,9 +71,7 @@ def follow_topic(topic_id: str, db: DbDep, user: UserDep) -> TopicOut:
         db.commit()
     except IntegrityError:
         db.rollback()
-    return TopicOut(
-        id=topic.id, slug=topic.slug, name=topic.name, icon=topic.icon, following=True
-    )
+    return _topic_out(topic, True)
 
 
 @router.delete("/topics/{topic_id}/follow", response_model=TopicOut)
@@ -58,9 +87,7 @@ def unfollow_topic(topic_id: str, db: DbDep, user: UserDep) -> TopicOut:
     if row:
         db.delete(row)
         db.commit()
-    return TopicOut(
-        id=topic.id, slug=topic.slug, name=topic.name, icon=topic.icon, following=False
-    )
+    return _topic_out(topic, False)
 
 
 @router.get("/users", response_model=list[UserOut])

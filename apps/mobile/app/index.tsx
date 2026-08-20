@@ -5,6 +5,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandHeader } from "../src/components/BrandHeader";
 import { OptionCard } from "../src/components/OptionCard";
+import { PollMenu } from "../src/components/PollMenu";
 import { ReportSheet } from "../src/components/ReportSheet";
 import { SignInSheet } from "../src/components/SignInSheet";
 import { api } from "../src/lib/api";
@@ -24,6 +25,8 @@ export default function VoteScreen() {
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [report, setReport] = useState(false);
+  const [menu, setMenu] = useState(false);
+  const [shownAt, setShownAt] = useState(0);
 
   const voted = !!poll?.viewer_vote_option_id;
   const photo = !!poll?.options.some((option) => option.image_url);
@@ -36,6 +39,7 @@ export default function VoteScreen() {
       const feed = await api.feed(session.deviceId, session.token);
       session.applyFeed(feed);
       setPoll(feed.poll);
+      setShownAt(Date.now());
       if (!session.token && feed.guest_votes_used >= 3) setSheet(true);
     } catch {
       setPoll(null);
@@ -57,6 +61,7 @@ export default function VoteScreen() {
     }
     setBusy(true);
     try {
+      await sendDwell(poll.id);
       const feed = await api.vote(poll.id, optionId, session.deviceId, session.token);
       session.applyFeed(feed);
       setPoll(feed.poll);
@@ -71,10 +76,18 @@ export default function VoteScreen() {
     }
   };
 
+  const sendDwell = async (pollId: string) => {
+    if (!session.token || !shownAt) return;
+    const seconds = Math.max(0, (Date.now() - shownAt) / 1000);
+    if (seconds < 0.4) return;
+    await api.dwell(pollId, seconds, session.deviceId, session.token).catch(() => undefined);
+  };
+
   const skip = async () => {
     if (!poll || voted || busy) return;
     setBusy(true);
     try {
+      await sendDwell(poll.id);
       const feed = await api.skip(poll.id, session.deviceId, session.token);
       session.applyFeed(feed);
       setPoll(feed.poll);
@@ -187,8 +200,8 @@ export default function VoteScreen() {
               </Text>
             ) : null}
             <View style={{ flexDirection: "row", gap: 18, marginTop: 16 }}>
-              <Pressable onPress={() => setReport(true)}>
-                <Text style={{ color: colors.quiet, fontFamily: fonts.medium }}>Report</Text>
+              <Pressable onPress={() => setMenu(true)}>
+                <Text style={{ color: colors.quiet, fontFamily: fonts.medium }}>···</Text>
               </Pressable>
               {poll.is_author ? (
                 <Pressable
@@ -227,6 +240,34 @@ export default function VoteScreen() {
         </View>
       )}
       <SignInSheet visible={sheet && !session.token} dimmed />
+      {menu && poll ? (
+        <PollMenu
+          onClose={() => setMenu(false)}
+          onReport={() => {
+            setMenu(false);
+            setReport(true);
+          }}
+          onRelevant={async () => {
+            setMenu(false);
+            if (!session.token) {
+              setSheet(true);
+              return;
+            }
+            await api.feedback(poll.id, "relevant", session.deviceId, session.token);
+          }}
+          onNotInterested={async () => {
+            setMenu(false);
+            if (!session.token) {
+              setSheet(true);
+              return;
+            }
+            await sendDwell(poll.id);
+            await api.feedback(poll.id, "not_interested", session.deviceId, session.token);
+            setPoll(null);
+            loadNext();
+          }}
+        />
+      ) : null}
       {report && poll ? <ReportSheet pollId={poll.id} onClose={() => setReport(false)} /> : null}
     </SafeAreaView>
   );

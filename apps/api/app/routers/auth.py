@@ -1,12 +1,12 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, select
+from sqlalchemy.orm import Session
 
 from app.auth import (
     AuthError,
     create_access_token,
-    is_admin,
     upsert_user,
     verify_apple_token,
     verify_google_token,
@@ -17,47 +17,101 @@ from app.handles import HandleError, validate_handle
 from app.models import (
     Notification,
     Poll,
+    PollDwell,
+    PollFeedback,
+    PollImpression,
     PushToken,
+    Topic,
     TopicFollow,
     User,
     UserBlock,
     UserFollow,
+    UserInterest,
     Vote,
 )
 from app.schemas import (
     AppleAuthIn,
     DevAuthIn,
     GoogleAuthIn,
+    InterestsIn,
     MeUpdate,
     NotificationOut,
+    OnboardingIn,
     PushTokenIn,
     TokenOut,
+    TopicOut,
     UserOut,
 )
+from app.taxonomy import unique_parent_ids
 
 router = APIRouter(tags=["auth"])
 
 
-def user_out(user: User) -> UserOut:
+def _topic_out(topic: Topic, following: bool = False) -> TopicOut:
+    return TopicOut(
+        id=topic.id,
+        slug=topic.slug,
+        name=topic.name,
+        icon=topic.icon,
+        parent_id=topic.parent_id,
+        following=following,
+    )
+
+
+def user_out(user: User, db: Session | None = None) -> UserOut:
+    interests: list[TopicOut] = []
+    if db is not None:
+        rows = list(
+            db.execute(
+                select(Topic)
+                .join(UserInterest, UserInterest.topic_id == Topic.id)
+                .where(UserInterest.user_id == user.id)
+                .order_by(Topic.name)
+            ).scalars()
+        )
+        interests = [_topic_out(topic) for topic in rows]
     return UserOut(
         id=user.id,
         handle=user.handle,
         handle_set=user.handle_set,
         display_name=user.display_name,
+        first_name=user.first_name,
+        city=user.city,
+        date_of_birth=user.date_of_birth,
+        onboarded_at=user.onboarded_at,
         avatar_url=user.avatar_url,
         email=user.email,
-        is_admin=is_admin(user),
+        is_admin=False,
+        interests=interests,
     )
 
 
-def _token(user: User) -> TokenOut:
-    return TokenOut(access_token=create_access_token(user.id), user=user_out(user))
+def _token(user: User, db: Session | None = None) -> TokenOut:
+    return TokenOut(access_token=create_access_token(user.id), user=user_out(user, db))
 
 
 def _auth_error(exc: Exception):
     if isinstance(exc, HandleError):
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=exc.code) from exc
     raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
+
+
+def _age_years(dob: date) -> int:
+    today = date.today()
+    return today.year - dob.year - ((today.month, today.day) < (dob.month, dob.day))
+
+
+def _set_interests(db: Session, user: User, topic_ids: list[str]) -> list[Topic]:
+    unique_ids = list(dict.fromkeys(topic_ids))
+    topics = list(db.scalars(select(Topic).where(Topic.id.in_(unique_ids))))
+    if len(topics) != len(unique_ids):
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="unknown_topic")
+    if len(unique_parent_ids(topics)) < 3:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="need_three_parent_topics")
+    db.execute(delete(UserInterest).where(UserInterest.user_id == user.id))
+    for topic in topics:
+        db.add(UserInterest(user_id=user.id, topic_id=topic.id))
+    return topics
 
 
 @router.post("/auth/apple", response_model=TokenOut)
@@ -74,7 +128,7 @@ def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
         )
     except (AuthError, HandleError) as exc:
         _auth_error(exc)
-    return _token(user)
+    return _token(user, db)
 
 
 @router.post("/auth/google", response_model=TokenOut)
@@ -92,7 +146,7 @@ def auth_google(body: GoogleAuthIn, db: DbDep) -> TokenOut:
         )
     except (AuthError, HandleError) as exc:
         _auth_error(exc)
-    return _token(user)
+    return _token(user, db)
 
 
 @router.post("/auth/dev", response_model=TokenOut)
@@ -112,18 +166,22 @@ def auth_dev(body: DevAuthIn, db: DbDep) -> TokenOut:
         )
     except HandleError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=exc.code) from exc
-    return _token(user)
+    return _token(user, db)
 
 
 @router.get("/me", response_model=UserOut)
-def me(user: UserDep) -> UserOut:
-    return user_out(user)
+def me(user: UserDep, db: DbDep) -> UserOut:
+    return user_out(user, db)
 
 
 @router.patch("/me", response_model=UserOut)
 def update_me(body: MeUpdate, user: UserDep, db: DbDep) -> UserOut:
     if body.display_name:
         user.display_name = body.display_name
+    if body.first_name:
+        user.first_name = body.first_name.strip()
+    if body.city is not None:
+        user.city = body.city.strip() or None
     if body.handle:
         try:
             handle = validate_handle(body.handle)
@@ -136,7 +194,39 @@ def update_me(body: MeUpdate, user: UserDep, db: DbDep) -> UserOut:
         user.handle_set = True
     db.commit()
     db.refresh(user)
-    return user_out(user)
+    return user_out(user, db)
+
+
+@router.post("/me/onboarding", response_model=UserOut)
+def onboard(body: OnboardingIn, user: UserDep, db: DbDep) -> UserOut:
+    if _age_years(body.date_of_birth) < 13:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail="under_13")
+    try:
+        handle = validate_handle(body.handle)
+    except HandleError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=exc.code) from exc
+    taken = db.scalar(select(User.id).where(User.handle == handle, User.id != user.id))
+    if taken:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="handle_taken")
+    _set_interests(db, user, body.topic_ids)
+    user.first_name = body.first_name.strip()
+    user.display_name = body.first_name.strip()
+    user.handle = handle
+    user.handle_set = True
+    user.date_of_birth = body.date_of_birth
+    user.city = (body.city or "").strip() or None
+    user.onboarded_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(user)
+    return user_out(user, db)
+
+
+@router.patch("/me/interests", response_model=UserOut)
+def update_interests(body: InterestsIn, user: UserDep, db: DbDep) -> UserOut:
+    _set_interests(db, user, body.topic_ids)
+    db.commit()
+    db.refresh(user)
+    return user_out(user, db)
 
 
 @router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
@@ -145,6 +235,10 @@ def delete_account(user: UserDep, db: DbDep) -> None:
     for poll in list(db.scalars(select(Poll).where(Poll.author_id == user.id))):
         poll.status = "deleted"
     db.execute(delete(TopicFollow).where(TopicFollow.user_id == user.id))
+    db.execute(delete(UserInterest).where(UserInterest.user_id == user.id))
+    db.execute(delete(PollFeedback).where(PollFeedback.user_id == user.id))
+    db.execute(delete(PollDwell).where(PollDwell.user_id == user.id))
+    db.execute(delete(PollImpression).where(PollImpression.user_id == user.id))
     db.execute(
         delete(UserFollow).where(
             (UserFollow.follower_id == user.id) | (UserFollow.followee_id == user.id)
@@ -159,6 +253,8 @@ def delete_account(user: UserDep, db: DbDep) -> None:
     user.deleted_at = now
     user.email = None
     user.display_name = "Deleted"
+    user.first_name = None
+    user.city = None
     user.handle = f"deleted_{user.id[:8]}"
     user.handle_set = True
     user.avatar_url = None

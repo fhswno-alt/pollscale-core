@@ -1,12 +1,10 @@
-"""Seed topics, authors, and a first set of polls."""
+"""Seed taxonomy, authors, and a first set of polls."""
 
 from __future__ import annotations
 
 import io
 import sys
 from pathlib import Path
-from uuid import uuid4
-
 from PIL import Image, ImageDraw
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -18,17 +16,9 @@ if str(ROOT) not in sys.path:
 from app.auth import upsert_user  # noqa: E402
 from app.config import get_settings  # noqa: E402
 from app.database import get_engine, get_session_factory  # noqa: E402
-from app.models import Base, Poll, PollOption, Topic  # noqa: E402
+from app.models import Base, Poll, PollOption  # noqa: E402
 from app.storage import get_storage  # noqa: E402
-
-TOPICS = [
-    ("lifestyle", "Lifestyle", "leaf"),
-    ("food", "Food", "food"),
-    ("music", "Music", "note"),
-    ("politics", "Politics", "gov"),
-    ("culture", "Culture", "film"),
-    ("work", "Work", "bag"),
-]
+from app.taxonomy import ensure_taxonomy  # noqa: E402
 
 PHOTOS = {
     "cabin": ("#1b140c", "#e8c07a", "CABIN"),
@@ -63,6 +53,8 @@ def seed(db: Session | None = None) -> None:
         db = get_session_factory()()
         close = True
     try:
+        ensure_taxonomy(db)
+        db.commit()
         if db.scalar(select(func.count()).select_from(Poll)):
             return
         _seed(db)
@@ -72,13 +64,7 @@ def seed(db: Session | None = None) -> None:
 
 
 def _seed(db: Session) -> None:
-    topics = {}
-    for slug, name, icon in TOPICS:
-        topic = db.scalar(select(Topic).where(Topic.slug == slug))
-        if topic is None:
-            topic = Topic(id=str(uuid4()), slug=slug, name=name, icon=icon)
-            db.add(topic)
-        topics[slug] = topic
+    topics = ensure_taxonomy(db)
 
     ada = upsert_user(
         db, provider="seed", subject="ada", display_name="Ada Okoye", handle_hint="ada"
@@ -94,7 +80,7 @@ def _seed(db: Session) -> None:
         provider="seed",
         subject="dave",
         display_name="Dave",
-        email="dave@polescale.com",
+        email="dave@pollscale.com",
         handle_hint="daven",
     )
     db.flush()
@@ -109,7 +95,7 @@ def _seed(db: Session) -> None:
     catalog = [
         {
             "author": nico,
-            "topic": topics["lifestyle"],
+            "topic": topics["lifestyle-travel"],
             "question": "First thing you do on a long weekend?",
             "options": [
                 ("Leave town", None, 380),
@@ -120,7 +106,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": ada,
-            "topic": topics["food"],
+            "topic": topics["food-restaurants"],
             "question": "Pineapple on pizza?",
             "options": [
                 ("Obviously yes", None, 444),
@@ -129,7 +115,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": june,
-            "topic": topics["work"],
+            "topic": topics["work-remote"],
             "question": "Where should the interesting work actually happen?",
             "options": [
                 ("Home", None, 701),
@@ -139,7 +125,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": nico,
-            "topic": topics["culture"],
+            "topic": topics["culture-film"],
             "question": "Better world: Dune or Blade Runner?",
             "options": [
                 ("Dune", dune, 612),
@@ -148,7 +134,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": ada,
-            "topic": topics["politics"],
+            "topic": topics["politics-us"],
             "question": "Will the U.S. economy avoid recession in 2025?",
             "options": [
                 ("Yes", None, 7688),
@@ -157,7 +143,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": june,
-            "topic": topics["music"],
+            "topic": topics["music-rock"],
             "question": "Which opening riff is better?",
             "options": [
                 ("Back in Black", riff_a, 910),
@@ -166,7 +152,7 @@ def _seed(db: Session) -> None:
         },
         {
             "author": nico,
-            "topic": topics["food"],
+            "topic": topics["food-cooking"],
             "question": "The correct way to eat pizza?",
             "options": [
                 ("Fold it", None, 540),
@@ -177,11 +163,22 @@ def _seed(db: Session) -> None:
         },
         {
             "author": ada,
-            "topic": topics["lifestyle"],
+            "topic": topics["lifestyle-home"],
             "question": "Cabin in the woods or penthouse in the city?",
             "options": [
                 ("Cabin", cabin, 821),
                 ("Penthouse", penthouse, 463),
+            ],
+        },
+        {
+            "author": june,
+            "topic": topics["places-local"],
+            "city_tag": "Austin",
+            "question": "Best breakfast taco in Austin?",
+            "options": [
+                ("Veracruz", None, 410),
+                ("Torchy's", None, 290),
+                ("Home kitchen", None, 180),
             ],
         },
     ]
@@ -191,6 +188,7 @@ def _seed(db: Session) -> None:
             author_id=item["author"].id,
             topic_id=item["topic"].id,
             question=item["question"],
+            city_tag=item.get("city_tag"),
             status="live",
         )
         db.add(poll)

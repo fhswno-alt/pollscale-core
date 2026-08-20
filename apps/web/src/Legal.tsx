@@ -2,21 +2,21 @@ const PAGES = {
   privacy: {
     title: "Privacy Policy",
     body: [
-      "Pollscale is for people 13 and older. We collect the account data Apple or Google shares (name, email, subject id), the username you pick, polls you post, votes and skips, reports, follows, and a device id used to enforce the three guest votes.",
+      "Pollscale is for people 13 and older. We collect the account data Apple or Google shares (name, email, subject id), the first name and username you pick, your date of birth, optional city, interests, polls you post, votes and skips, Relevant / Not interested taps, reports, follows, dwell time on a poll, and a device id used to enforce the three guest votes.",
       "Images you upload are stored on object storage we control (or a local disk in development). We use OpenAI’s moderation API to score new polls. We do not sell personal data.",
       "You can delete your own live polls. You can delete your account in the app. That removes your profile, polls, follows, notifications, and push tokens. Vote rows are removed when they belong to you.",
-      "Contact support@polescale.com for access or deletion requests.",
+      "Contact support@pollscale.com or legal@pollscale.com for access or deletion requests.",
     ],
   },
   terms: {
     title: "Terms of Use",
     body: [
       "By using Pollscale you agree to these terms. You must be 13 or older. The product is English only.",
-      "You get three votes without an account. After that you sign in with Apple or Google. Votes cannot be changed. There are no comments and no rating sliders.",
+      "You get three votes without an account. After that you sign in with Apple or Google and finish onboarding. Votes cannot be changed. There are no comments and no rating sliders.",
       "Anyone signed in may post a poll. Posts go live immediately unless automated moderation flags them. Flagged posts wait for a human (usually a few hours). We will notify you if a human approves or rejects the post.",
       "Politics is allowed. Sexual content, self-harm, hate, terror, graphic violence, sexual content involving minors, illegal activity, and spam are not. We may take a poll down. Repeated abuse can cost you the account.",
       "The iOS and Android apps are the product. This website does not host voting. App Store and Play listings are not live yet.",
-      "support@polescale.com is the contact for these terms.",
+      "support@pollscale.com and legal@pollscale.com are the contacts for these terms.",
     ],
   },
   guidelines: {
@@ -31,18 +31,18 @@ const PAGES = {
       "Self-harm. No instructions, no encouragement, no “how should I…”. If you are in crisis, get help in the real world.",
       "Spam. No vote rings, no scrape-and-dump, no commercial floods.",
       "Sexual / NSFW content is not allowed on Pollscale. Politics is.",
-      "Every poll has Report. We review reports in the same queue as AI-flagged posts. Target response is a few hours.",
+      "Every poll has Report. We review reports in the same queue as AI-flagged posts. Target response is a few hours. Relevant and Not interested only change your For You ranking; they are not reports.",
       "English only. 13+.",
-      "Email support@polescale.com if you need a human.",
+      "Email support@pollscale.com or legal@pollscale.com if you need a human.",
     ],
   },
   support: {
     title: "Support",
     body: [
-      "Email support@polescale.com. That is the only support channel for v2.",
+      "Email support@pollscale.com. Legal requests: legal@pollscale.com. Those are the only support channels for v2.",
       "Include your username and what you were doing. Do not send anyone else’s private data.",
       "To delete your account: sign in → You → Delete account. Apple requires this; we actually do it.",
-      "To report a poll: open it → Report. Pick a reason.",
+      "To report a poll: open the ··· menu → Report. Pick a reason.",
     ],
   },
 } as const;

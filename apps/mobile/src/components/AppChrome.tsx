@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { registerPush } from "../lib/push";
 import { useSession } from "../lib/session";
-import { UsernameGate } from "./UsernameGate";
+import { OnboardingGate } from "./OnboardingGate";
 
 export function AppChrome({ children }: { children: ReactNode }) {
   const session = useSession();
@@ -15,7 +15,7 @@ export function AppChrome({ children }: { children: ReactNode }) {
   return (
     <View style={{ flex: 1 }}>
       {children}
-      <UsernameGate />
+      <OnboardingGate />
     </View>
   );
 }

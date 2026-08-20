@@ -36,12 +36,14 @@ def health() -> dict[str, str]:
 @app.on_event("startup")
 def startup() -> None:
     Base.metadata.create_all(bind=get_engine())
-    if not settings.auto_seed:
-        return
-    from scripts.seed import seed
-
     db = get_session_factory()()
     try:
-        seed(db)
+        from app.admin_auth import bootstrap_admin_user
+
+        bootstrap_admin_user(db)
+        if settings.auto_seed:
+            from scripts.seed import seed
+
+            seed(db)
     finally:
         db.close()

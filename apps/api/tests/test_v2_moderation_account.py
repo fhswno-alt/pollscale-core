@@ -1,3 +1,6 @@
+import pyotp
+
+from app.admin_auth import create_admin_user
 from app.moderation import ModerationResult
 from tests.conftest import headers
 
@@ -7,6 +10,20 @@ def _auth(client, handle="ada", email=None):
     if email:
         body["email"] = email
     return client.post("/auth/dev", json=body).json()
+
+
+def _admin_token(client, db_session):
+    create_admin_user(db_session, "queue@pollscale.com", "supersecret1")
+    login = client.post(
+        "/admin/auth/login",
+        json={"email": "queue@pollscale.com", "password": "supersecret1"},
+    )
+    code = pyotp.TOTP(login.json()["secret"]).now()
+    mfa = client.post(
+        "/admin/auth/mfa",
+        json={"token": login.json()["enrollment_token"], "code": code},
+    )
+    return mfa.json()["access_token"]
 
 
 def test_reserved_username_rejected(client):
@@ -26,16 +43,16 @@ def test_legal_username_accepted(client):
     assert response.json()["user"]["handle_set"] is True
 
 
-def test_report_creates_queue_item(client, poll):
+def test_report_creates_queue_item(client, poll, db_session):
     user = _auth(client, "reporter", "reporter@example.com")
-    dave = _auth(client, "daven", "dave@polescale.com")
+    admin = _admin_token(client, db_session)
     reported = client.post(
         f"/polls/{poll['poll'].id}/report",
         json={"reason": "spam", "detail": "looks like a bot"},
         headers=headers("device-report-01", user["access_token"]),
     )
     assert reported.status_code == 200
-    queue = client.get("/admin/queue", headers=headers("device-admin-01", dave["access_token"]))
+    queue = client.get("/admin/queue", headers={"Authorization": f"Bearer {admin}"})
     assert queue.status_code == 200
     ids = [item["poll"]["id"] for item in queue.json()]
     assert poll["poll"].id in ids

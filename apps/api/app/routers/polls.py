@@ -1,16 +1,17 @@
+from datetime import datetime, timezone
+
 from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.auth import is_admin
 from app.config import get_settings
 from app.deps import DbDep, DeviceDep, OptionalUser, UserDep, actor_key
-from app.models import Poll, PollOption, Report, Skip, Topic, Vote
+from app.models import Poll, PollDwell, PollFeedback, PollOption, Report, Skip, Topic, Vote
 from app.moderation import result_to_dict, score_content
 from app.notifications import notify
 from app.polls import guest_status, guest_votes_used, load_poll, next_poll, present_poll
-from app.schemas import FeedOut, PollCard, PollCreate, ReportIn, ReportOut, VoteIn
+from app.schemas import DwellIn, FeedOut, FeedbackIn, PollCard, PollCreate, ReportIn, ReportOut, VoteIn
 
 router = APIRouter(tags=["polls"])
 
@@ -34,7 +35,7 @@ def _visible(poll: Poll, user) -> bool:
         return True
     if user is None:
         return False
-    return user.id == poll.author_id or is_admin(user)
+    return user.id == poll.author_id
 
 
 @router.get("/feed/next", response_model=FeedOut)
@@ -74,6 +75,7 @@ def create_poll(body: PollCreate, db: DbDep, user: UserDep, device_id: DeviceDep
         topic_id=body.topic_id,
         question=body.question.strip(),
         question_image_url=body.question_image_url,
+        city_tag=(body.city_tag or "").strip() or None,
         status=poll_status,
         moderation=result_to_dict(score),
     )
@@ -99,7 +101,7 @@ def delete_poll(poll_id: str, db: DbDep, user: UserDep) -> None:
     poll = load_poll(db, poll_id)
     if poll is None or poll.status == "deleted":
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="poll_not_found")
-    if poll.author_id != user.id and not is_admin(user):
+    if poll.author_id != user.id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="not_author")
     poll.status = "deleted"
     db.commit()
@@ -175,6 +177,45 @@ def skip_poll(poll_id: str, db: DbDep, device_id: DeviceDep, user: OptionalUser)
         db.rollback()
 
     return _feed(db, user, device_id, next_poll(db, user, key))
+
+
+@router.post("/polls/{poll_id}/feedback")
+def poll_feedback(
+    poll_id: str,
+    body: FeedbackIn,
+    db: DbDep,
+    user: UserDep,
+) -> dict[str, str]:
+    poll = load_poll(db, poll_id)
+    if poll is None or poll.status == "deleted":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="poll_not_found")
+    existing = db.scalar(
+        select(PollFeedback).where(PollFeedback.user_id == user.id, PollFeedback.poll_id == poll.id)
+    )
+    now = datetime.now(timezone.utc)
+    if existing:
+        existing.kind = body.kind
+        existing.created_at = now
+    else:
+        db.add(PollFeedback(user_id=user.id, poll_id=poll.id, kind=body.kind, created_at=now))
+    db.commit()
+    return {"status": "ok", "kind": body.kind}
+
+
+@router.post("/polls/{poll_id}/dwell")
+def poll_dwell(poll_id: str, body: DwellIn, db: DbDep, user: UserDep) -> dict[str, str]:
+    poll = load_poll(db, poll_id)
+    if poll is None or poll.status == "deleted":
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="poll_not_found")
+    existing = db.scalar(
+        select(PollDwell).where(PollDwell.user_id == user.id, PollDwell.poll_id == poll.id)
+    )
+    if existing:
+        existing.seconds = float(existing.seconds or 0) + body.seconds
+    else:
+        db.add(PollDwell(user_id=user.id, poll_id=poll.id, seconds=body.seconds))
+    db.commit()
+    return {"status": "ok"}
 
 
 @router.post("/polls/{poll_id}/report", response_model=ReportOut)

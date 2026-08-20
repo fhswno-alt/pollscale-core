@@ -3,8 +3,11 @@ export type Topic = {
   slug: string;
   name: string;
   icon: string;
+  parent_id?: string | null;
   following: boolean;
 };
+
+export type TopicNode = Topic & { children: TopicNode[] };
 
 export type Person = {
   id: string;
@@ -46,4 +49,13 @@ export type Feed = {
   signed_in: boolean;
 };
 
-export type SessionUser = Person & { email?: string | null; handle_set?: boolean; is_admin?: boolean };
+export type SessionUser = Person & {
+  email?: string | null;
+  handle_set?: boolean;
+  is_admin?: boolean;
+  first_name?: string | null;
+  city?: string | null;
+  date_of_birth?: string | null;
+  onboarded_at?: string | null;
+  interests?: Topic[];
+};

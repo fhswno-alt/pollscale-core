@@ -44,6 +44,7 @@ export default function YouScreen() {
           </Text>
         )}
         <Row label="Topics" onPress={() => router.push("/topics")} />
+        {session.token ? <Row label="Interests" onPress={() => router.push("/interests")} /> : null}
         <Row label="People" onPress={() => router.push("/people")} />
         {session.token ? <Row label="Notifications" onPress={() => router.push("/notifications")} /> : null}
         {session.token ? <Row label="Your polls" onPress={() => router.push("/mine")} /> : null}

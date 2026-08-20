@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import Any
+from datetime import date, datetime
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -9,9 +9,19 @@ class TopicOut(BaseModel):
     slug: str
     name: str
     icon: str
+    parent_id: str | None = None
     following: bool = False
 
     model_config = {"from_attributes": True}
+
+
+class TopicNode(BaseModel):
+    id: str
+    slug: str
+    name: str
+    icon: str
+    parent_id: str | None = None
+    children: list["TopicNode"] = Field(default_factory=list)
 
 
 class UserOut(BaseModel):
@@ -19,10 +29,15 @@ class UserOut(BaseModel):
     handle: str
     handle_set: bool = False
     display_name: str
+    first_name: str | None = None
+    city: str | None = None
+    date_of_birth: date | None = None
+    onboarded_at: datetime | None = None
     avatar_url: str | None = None
     following: bool = False
     email: str | None = None
     is_admin: bool = False
+    interests: list[TopicOut] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 
@@ -47,6 +62,7 @@ class PollCreate(BaseModel):
     question: str = Field(min_length=4, max_length=240)
     topic_id: str
     question_image_url: str | None = None
+    city_tag: str | None = Field(default=None, max_length=80)
     options: list[OptionIn] = Field(min_length=2, max_length=4)
 
 
@@ -109,6 +125,28 @@ class UploadOut(BaseModel):
 class MeUpdate(BaseModel):
     handle: str | None = Field(default=None, min_length=2, max_length=32)
     display_name: str | None = Field(default=None, min_length=1, max_length=80)
+    first_name: str | None = Field(default=None, min_length=1, max_length=40)
+    city: str | None = Field(default=None, max_length=80)
+
+
+class OnboardingIn(BaseModel):
+    first_name: str = Field(min_length=1, max_length=40)
+    handle: str = Field(min_length=2, max_length=32)
+    date_of_birth: date
+    city: str | None = Field(default=None, max_length=80)
+    topic_ids: list[str] = Field(min_length=1)
+
+
+class InterestsIn(BaseModel):
+    topic_ids: list[str] = Field(min_length=1)
+
+
+class FeedbackIn(BaseModel):
+    kind: Literal["relevant", "not_interested"]
+
+
+class DwellIn(BaseModel):
+    seconds: float = Field(ge=0, le=600)
 
 
 class ReportIn(BaseModel):
@@ -160,3 +198,39 @@ class ActivityOut(BaseModel):
     kind: str
     label: str
     created_at: datetime
+
+
+class AdminLoginIn(BaseModel):
+    email: str
+    password: str = Field(min_length=8, max_length=128)
+
+
+class AdminMfaIn(BaseModel):
+    token: str
+    code: str = Field(min_length=6, max_length=12)
+
+
+class AdminCreateIn(BaseModel):
+    email: str
+    password: str = Field(min_length=10, max_length=128)
+
+
+class AdminOut(BaseModel):
+    id: str
+    email: str
+    totp_enrolled: bool
+
+
+class AdminLoginOut(BaseModel):
+    status: Literal["enroll_mfa", "mfa_required"]
+    enrollment_token: str | None = None
+    mfa_token: str | None = None
+    otpauth_url: str | None = None
+    secret: str | None = None
+    qr_png_base64: str | None = None
+
+
+class AdminTokenOut(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    admin: AdminOut

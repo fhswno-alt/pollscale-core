@@ -1,11 +1,10 @@
 from collections import defaultdict
 
-from sqlalchemy import case, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, selectinload
 
 from app.config import get_settings
-from app.auth import is_admin
-from app.models import Poll, PollOption, Skip, TopicFollow, User, UserBlock, UserFollow, Vote
+from app.models import Poll, PollOption, Skip, TopicFollow, User, UserFollow, Vote
 
 
 def guest_votes_used(db: Session, device_id: str) -> int:
@@ -110,6 +109,7 @@ def serialize_poll(
             "slug": poll.topic.slug,
             "name": poll.topic.name,
             "icon": poll.topic.icon,
+            "parent_id": poll.topic.parent_id,
             "following": following_topic,
         },
         "author": {
@@ -184,46 +184,11 @@ def present_poll(db: Session, poll: Poll, user: User | None, key: str) -> dict:
     if user:
         data["author"]["email"] = None
         data["author"]["handle_set"] = poll.author.handle_set
-        data["author"]["is_admin"] = is_admin(poll.author)
+        data["author"]["is_admin"] = False
     return data
 
 
 def next_poll(db: Session, user: User | None, key: str) -> Poll | None:
-    seen = seen_poll_ids(db, key)
-    query = (
-        select(Poll)
-        .options(
-            selectinload(Poll.options),
-            selectinload(Poll.topic),
-            selectinload(Poll.author),
-        )
-        .where(Poll.status == "live")
-        .where(User.deleted_at.is_(None))
-        .join(User, User.id == Poll.author_id)
-    )
-    if seen:
-        query = query.where(Poll.id.notin_(seen))
-    if user is not None:
-        blocked = select(UserBlock.blocked_id).where(UserBlock.blocker_id == user.id)
-        query = query.where(Poll.author_id.notin_(blocked))
+    from app.ranking import next_poll as rank_next
 
-    followed_topics: set[str] = set()
-    followed_people: set[str] = set()
-    if user is not None:
-        followed_topics = set(
-            db.scalars(select(TopicFollow.topic_id).where(TopicFollow.user_id == user.id))
-        )
-        followed_people = set(
-            db.scalars(select(UserFollow.followee_id).where(UserFollow.follower_id == user.id))
-        )
-
-    if followed_people or followed_topics:
-        clauses = []
-        if followed_people:
-            clauses.append((Poll.author_id.in_(followed_people), 0))
-        if followed_topics:
-            clauses.append((Poll.topic_id.in_(followed_topics), 1))
-        query = query.order_by(case(*clauses, else_=2), Poll.created_at.desc())
-    else:
-        query = query.order_by(Poll.created_at.desc())
-    return db.scalars(query).first()
+    return rank_next(db, user, key)

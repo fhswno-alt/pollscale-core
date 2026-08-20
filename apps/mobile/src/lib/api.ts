@@ -1,6 +1,6 @@
 import { Platform } from "react-native";
 
-import type { Feed, Person, Poll, SessionUser, Topic } from "./types";
+import type { Feed, Person, Poll, SessionUser, Topic, TopicNode } from "./types";
 
 const FALLBACK =
   Platform.OS === "android" ? "http://10.0.2.2:8000" : "http://localhost:8000";
@@ -80,6 +80,34 @@ export const api = {
     request<void>("/me", { deviceId, token, method: "DELETE" }),
   setHandle: (handle: string, deviceId: string, token: string) =>
     request<SessionUser>("/me", { deviceId, token, method: "PATCH", body: { handle } }),
+  onboard: (
+    body: {
+      first_name: string;
+      handle: string;
+      date_of_birth: string;
+      city?: string | null;
+      topic_ids: string[];
+    },
+    deviceId: string,
+    token: string,
+  ) => request<SessionUser>("/me/onboarding", { deviceId, token, method: "POST", body }),
+  setInterests: (topicIds: string[], deviceId: string, token: string) =>
+    request<SessionUser>("/me/interests", { deviceId, token, method: "PATCH", body: { topic_ids: topicIds } }),
+  taxonomy: (deviceId: string) => request<TopicNode[]>("/topics/taxonomy", { deviceId }),
+  feedback: (pollId: string, kind: "relevant" | "not_interested", deviceId: string, token: string) =>
+    request<{ status: string; kind: string }>(`/polls/${pollId}/feedback`, {
+      deviceId,
+      token,
+      method: "POST",
+      body: { kind },
+    }),
+  dwell: (pollId: string, seconds: number, deviceId: string, token: string) =>
+    request<{ status: string }>(`/polls/${pollId}/dwell`, {
+      deviceId,
+      token,
+      method: "POST",
+      body: { seconds },
+    }),
   notifications: (deviceId: string, token: string) =>
     request<{ id: string; type: string; title: string; body: string }[]>("/me/notifications", {
       deviceId,

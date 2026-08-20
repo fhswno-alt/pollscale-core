@@ -17,7 +17,8 @@ os.environ.setdefault("AUTO_SEED", "false")
 os.environ.setdefault("ALLOW_DEV_AUTH", "true")
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("POLLSCALE_ENV", "test")
-os.environ.setdefault("ADMIN_EMAILS", "dave@polescale.com")
+os.environ.setdefault("ADMIN_BOOTSTRAP_EMAIL", "dave@pollscale.com")
+os.environ.setdefault("ADMIN_BOOTSTRAP_PASSWORD", "bootstrap-pass-1")
 os.environ["OPENAI_API_KEY"] = ""
 
 from app.config import get_settings  # noqa: E402

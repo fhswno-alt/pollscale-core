@@ -4,9 +4,10 @@ from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.auth import AuthError, decode_access_token, is_admin
+from app.admin_auth import AdminAuthError, decode_admin_token
+from app.auth import AuthError, decode_access_token
 from app.database import get_db
-from app.models import User
+from app.models import AdminUser, User
 
 bearer = HTTPBearer(auto_error=False)
 
@@ -50,13 +51,23 @@ def require_user(user: OptionalUser) -> User:
 UserDep = Annotated[User, Depends(require_user)]
 
 
-def require_admin(user: UserDep) -> User:
-    if not is_admin(user):
-        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="admin_required")
-    return user
+def require_admin(
+    db: DbDep,
+    creds: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)] = None,
+) -> AdminUser:
+    if creds is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="admin_required")
+    try:
+        admin_id, _typ = decode_admin_token(creds.credentials, allowed={"access"})
+    except (AdminAuthError, AuthError, Exception):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="admin_required") from None
+    admin = db.get(AdminUser, admin_id)
+    if admin is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, detail="admin_required")
+    return admin
 
 
-AdminDep = Annotated[User, Depends(require_admin)]
+AdminDep = Annotated[AdminUser, Depends(require_admin)]
 
 
 def actor_key(user: User | None, device_id: str) -> str:

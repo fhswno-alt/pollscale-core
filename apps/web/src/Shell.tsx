@@ -18,7 +18,9 @@ export function Shell() {
       <Outlet />
       <footer>
         <p>
-          Questions: <a href="mailto:support@polescale.com">support@polescale.com</a>
+          Questions: <a href="mailto:support@pollscale.com">support@pollscale.com</a>
+          {" · "}
+          <a href="mailto:legal@pollscale.com">legal@pollscale.com</a>
         </p>
       </footer>
     </div>

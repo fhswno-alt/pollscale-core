@@ -32,16 +32,13 @@ class Settings(BaseSettings):
     guest_vote_limit: int = 3
 
     openai_api_key: str = ""
-    admin_emails: str = "dave@polescale.com"
+    admin_bootstrap_email: str = ""
+    admin_bootstrap_password: str = ""
     expo_access_token: str = ""
 
     @property
     def is_production(self) -> bool:
         return self.pollscale_env.lower() == "production"
-
-    @property
-    def admin_email_set(self) -> set[str]:
-        return {item.strip().lower() for item in self.admin_emails.split(",") if item.strip()}
 
 
 @lru_cache
