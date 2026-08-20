@@ -6,9 +6,9 @@ v2 is still TestFlight / internal. This repo is a pnpm monorepo. Postgres is the
 
 ```
 apps/mobile    Expo (iOS / Android)
-apps/web       Marketing + legal (no voting)
-apps/admin     Moderation queue (email + TOTP, not Apple/Google)
-apps/api       FastAPI
+apps/web       Marketing + legal (no voting) — Next.js 16 App Router
+apps/admin     Moderation queue (email + TOTP, not Apple/Google) — Next.js 16
+apps/api       FastAPI (uv)
 ```
 
 ## Run
@@ -27,7 +27,7 @@ API: `http://localhost:8000` (later `https://api.pollscale.com`). Web does not h
 More: [docs/run.md](docs/run.md) · [docs/observability.md](docs/observability.md) · [docs/onboarding.md](docs/onboarding.md) · [docs/ranking.md](docs/ranking.md) · [docs/notifications.md](docs/notifications.md) · [docs/admin.md](docs/admin.md) · [docs/analytics.md](docs/analytics.md) · [docs/ci.md](docs/ci.md)
 
 ```bash
-cd apps/api && pytest
+cd apps/api && uv sync && uv run pytest
 ```
 
 Tests: vote uniqueness, guest quota, skip, reserved usernames, report → queue, flagged poll not public, delete own poll, delete account, 13+ DOB, onboarding topics, For You ranking, admin MFA, pollscale.com domain strings, Slack/PostHog analytics.

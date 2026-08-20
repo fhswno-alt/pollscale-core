@@ -4,13 +4,13 @@
   --muted: #8b8b8f;
   --accent: #e8ff3d;
   --hairline: rgba(243, 241, 232, 0.16);
-  font-family: Archivo, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--font-archivo), ui-sans-serif, system-ui, sans-serif;
   color: var(--text);
   background: var(--canvas);
 }
 
 * { box-sizing: border-box; }
-html, body, #root { margin: 0; min-height: 100%; background: var(--canvas); }
+html, body { margin: 0; min-height: 100%; background: var(--canvas); }
 a { color: var(--accent); text-decoration: none; }
 a.active { color: var(--text); }
 

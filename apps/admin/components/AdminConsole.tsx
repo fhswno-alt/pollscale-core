@@ -1,9 +1,8 @@
-import { StrictMode, useEffect, useState } from "react";
-import { createRoot } from "react-dom/client";
+"use client";
 
-import "./style.css";
+import { useEffect, useState } from "react";
 
-const API = (import.meta.env.VITE_API_URL as string | undefined) || "http://localhost:8000";
+import { API, req } from "@/lib/api";
 
 type QueueItem = {
   poll: { id: string; question: string; author: { handle: string } };
@@ -26,21 +25,8 @@ type LoginPayload = {
   qr_png_base64?: string | null;
 };
 
-async function req<T>(path: string, token: string, method = "GET", body?: unknown): Promise<T> {
-  const response = await fetch(`${API}${path}`, {
-    method,
-    headers: {
-      Authorization: `Bearer ${token}`,
-      ...(body ? { "Content-Type": "application/json" } : {}),
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok) throw new Error((await response.json().catch(() => ({}))).detail || response.statusText);
-  return response.json();
-}
-
-function App() {
-  const [token, setToken] = useState(localStorage.getItem("pollscale.admin") || "");
+export function AdminConsole() {
+  const [token, setToken] = useState("");
   const [email, setEmail] = useState("dave@pollscale.com");
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
@@ -65,6 +51,11 @@ function App() {
     setActivity(a);
     setAdmins(people);
   };
+
+  useEffect(() => {
+    const stored = localStorage.getItem("pollscale.admin") || "";
+    if (stored) setToken(stored);
+  }, []);
 
   useEffect(() => {
     if (!token) return;
@@ -160,6 +151,8 @@ function App() {
               <>
                 <p className="meta">Scan the QR or type the secret into your authenticator, then enter the 6-digit code.</p>
                 {pending.qr_png_base64 ? (
+                  // QR is a data URL from FastAPI; next/image is not useful here.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     alt="TOTP QR"
                     src={`data:image/png;base64,${pending.qr_png_base64}`}
@@ -264,9 +257,3 @@ function App() {
     </div>
   );
 }
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
