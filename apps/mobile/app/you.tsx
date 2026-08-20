@@ -1,46 +1,40 @@
 import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { BrandHeader } from "../src/components/BrandHeader";
+import { ConfirmSheet } from "../src/components/ConfirmSheet";
+import { GroupedRow, GroupedSection } from "../src/components/GroupedList";
 import { RipplePressable } from "../src/components/RipplePressable";
 import { api } from "../src/lib/api";
 import { errorMessage, reportError } from "../src/lib/errors";
 import { LEGAL_URLS } from "../src/lib/legal";
 import { hasNotificationPermission, requestPushWithCopy } from "../src/lib/push";
 import { useSession } from "../src/lib/session";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, radius, space, type } from "../src/theme";
 
 export default function YouScreen() {
   const session = useSession();
   const [pushOn, setPushOn] = useState(false);
   const [pushError, setPushError] = useState("");
+  const [confirmWipe, setConfirmWipe] = useState(false);
 
   useEffect(() => {
     hasNotificationPermission().then(setPushOn).catch(() => undefined);
   }, [session.token]);
 
-  const wipe = () => {
-    const run = async () => {
-      if (!session.token) return;
-      try {
-        await api.deleteAccount(session.deviceId, session.token);
-        await session.signOut();
-        router.replace("/");
-      } catch (error) {
-        reportError(error, { context: "delete_account" });
-        Alert.alert("Couldn’t delete account", errorMessage(error));
-      }
-    };
-    if (typeof Alert.alert === "function") {
-      Alert.alert("Delete account", "This removes your polls, follows, and identity. Votes you cast are dropped.", [
-        { text: "Cancel", style: "cancel" },
-        { text: "Delete", style: "destructive", onPress: run },
-      ]);
-    } else {
-      run();
+  const wipe = async () => {
+    if (!session.token) return;
+    setConfirmWipe(false);
+    try {
+      await api.deleteAccount(session.deviceId, session.token);
+      await session.signOut();
+      router.replace("/");
+    } catch (error) {
+      reportError(error, { context: "delete_account" });
+      setPushError(errorMessage(error, "Couldn’t delete account."));
     }
   };
 
@@ -60,42 +54,39 @@ export default function YouScreen() {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
       <BrandHeader />
-      <ScrollView contentContainerStyle={{ padding: 22, gap: 14, paddingBottom: 40 }}>
-        <Text
-          allowFontScaling
-          maxFontSizeMultiplier={1.3}
-          style={{ color: colors.text, fontFamily: fonts.black, fontSize: 40, letterSpacing: -1.4 }}
-        >
-          {session.user?.display_name ?? "You"}
-        </Text>
-        {session.user ? (
-          <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 16 }}>
-            @{session.user.handle}
+      <ScrollView contentContainerStyle={{ padding: space.s20, gap: space.s20, paddingBottom: space.s40 }}>
+        <View style={{ paddingTop: space.s8, paddingBottom: space.s4 }}>
+          <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ ...type.display, color: colors.text }}>
+            {session.user?.display_name ?? "You"}
           </Text>
-        ) : (
-          <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 16 }}>
-            Sign in to post and follow.
+          <Text allowFontScaling style={{ ...type.body, color: colors.muted, marginTop: space.s4 }}>
+            {session.user ? `@${session.user.handle}` : "Sign in to post and follow."}
           </Text>
-        )}
-        <Row label="Topics" onPress={() => router.push("/topics")} />
-        {session.token ? <Row label="Interests" onPress={() => router.push("/interests")} /> : null}
-        <Row label="People" onPress={() => router.push("/people")} />
-        {session.token ? <Row label="Notifications" onPress={() => router.push("/notifications")} /> : null}
-        {session.token ? <Row label="Your polls" onPress={() => router.push("/mine")} /> : null}
+        </View>
+
+        <GroupedSection>
+          <GroupedRow label="Topics" onPress={() => router.push("/topics")} />
+          {session.token ? <GroupedRow label="Interests" onPress={() => router.push("/interests")} /> : null}
+          <GroupedRow label="People" onPress={() => router.push("/people")} last={!session.token} />
+          {session.token ? <GroupedRow label="Notifications" onPress={() => router.push("/notifications")} /> : null}
+          {session.token ? <GroupedRow label="Your polls" onPress={() => router.push("/mine")} last /> : null}
+        </GroupedSection>
+
         {session.token && !pushOn ? (
           <View
             style={{
+              backgroundColor: colors.sheet,
               borderWidth: 1,
               borderColor: colors.hairline,
               borderRadius: radius.card,
-              padding: 18,
-              gap: 10,
+              padding: space.s16,
+              gap: space.s8,
             }}
           >
             <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18 }}>
               Optional notifications
             </Text>
-            <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 15 }}>
+            <Text allowFontScaling style={{ ...type.body, color: colors.muted }}>
               Pollscale can tell you when a poll is approved, someone votes, or someone follows you. We only ask after
               you tap this.
             </Text>
@@ -105,10 +96,12 @@ export default function YouScreen() {
               onPress={enablePush}
               style={{
                 height: 48,
+                minHeight: minHit,
                 borderRadius: radius.pill,
                 backgroundColor: colors.accent,
                 alignItems: "center",
                 justifyContent: "center",
+                marginTop: space.s4,
               }}
             >
               <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold }}>
@@ -116,55 +109,34 @@ export default function YouScreen() {
               </Text>
             </RipplePressable>
             {pushError ? (
-              <Text allowFontScaling style={{ color: "#FF8B8B" }}>
+              <Text allowFontScaling style={{ color: colors.danger }}>
                 {pushError}
               </Text>
             ) : null}
           </View>
         ) : null}
-        <Row label="Privacy" onPress={() => Linking.openURL(LEGAL_URLS.privacy)} />
-        <Row label="Terms" onPress={() => Linking.openURL(LEGAL_URLS.terms)} />
-        <Row label="Support" onPress={() => Linking.openURL(LEGAL_URLS.support)} />
+
+        <GroupedSection>
+          <GroupedRow label="Privacy" onPress={() => Linking.openURL(LEGAL_URLS.privacy)} />
+          <GroupedRow label="Terms" onPress={() => Linking.openURL(LEGAL_URLS.terms)} />
+          <GroupedRow label="Support" onPress={() => Linking.openURL(LEGAL_URLS.support)} last />
+        </GroupedSection>
+
         {session.token ? (
-          <RipplePressable
-            accessibilityRole="button"
-            accessibilityLabel="Sign out"
-            onPress={session.signOut}
-            style={{ marginTop: 8 }}
-          >
-            <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium, fontSize: 16 }}>
-              Sign out
-            </Text>
-          </RipplePressable>
-        ) : null}
-        {session.token ? (
-          <RipplePressable accessibilityRole="button" accessibilityLabel="Delete account" onPress={wipe}>
-            <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium, fontSize: 16 }}>
-              Delete account
-            </Text>
-          </RipplePressable>
+          <GroupedSection>
+            <GroupedRow label="Sign out" onPress={session.signOut} />
+            <GroupedRow label="Delete account" onPress={() => setConfirmWipe(true)} last destructive />
+          </GroupedSection>
         ) : null}
       </ScrollView>
+      <ConfirmSheet
+        visible={confirmWipe}
+        title="Delete account?"
+        body="This removes your polls, follows, and identity. Votes you cast are dropped."
+        confirmLabel="Delete account"
+        onConfirm={wipe}
+        onClose={() => setConfirmWipe(false)}
+      />
     </SafeAreaView>
-  );
-}
-
-function Row({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <RipplePressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        borderWidth: 1,
-        borderColor: colors.hairline,
-        borderRadius: radius.card,
-        padding: 18,
-      }}
-    >
-      <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>
-        {label}
-      </Text>
-    </RipplePressable>
   );
 }

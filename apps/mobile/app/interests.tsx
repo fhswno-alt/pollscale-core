@@ -1,12 +1,14 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ScreenBack, ScreenTitle } from "../src/components/GroupedList";
+import { RipplePressable } from "../src/components/RipplePressable";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
 import type { TopicNode } from "../src/lib/types";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, radius, space, type } from "../src/theme";
 
 function parentCount(tree: TopicNode[], selected: Set<string>) {
   let count = 0;
@@ -55,66 +57,88 @@ export default function InterestsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 40 }}>
-        <Pressable onPress={() => router.back()}>
-          <Text style={{ color: colors.muted, fontFamily: fonts.medium, marginBottom: 12 }}>Back</Text>
-        </Pressable>
-        <Text style={{ color: colors.text, fontFamily: fonts.black, fontSize: 36, letterSpacing: -1.2 }}>
-          Interests
-        </Text>
-        <Text style={{ color: colors.muted, fontFamily: fonts.medium, marginTop: 8, marginBottom: 18 }}>
+      <ScrollView contentContainerStyle={{ paddingBottom: space.s40 }}>
+        <ScreenBack />
+        <ScreenTitle>Interests</ScreenTitle>
+        <Text
+          allowFontScaling
+          style={{ ...type.body, color: colors.muted, paddingHorizontal: space.s20, marginTop: space.s8, marginBottom: space.s20 }}
+        >
           At least three parent topics. Subtopics are optional.
         </Text>
-        {tree.map((parent) => (
-          <View key={parent.id} style={{ marginBottom: 12 }}>
-            <Pressable
-              onPress={() => {
-                toggle(parent.id);
-                setOpen(open === parent.id ? null : parent.id);
-              }}
-              style={{
-                borderWidth: 1,
-                borderColor:
-                  selected.has(parent.id) || parent.children.some((child) => selected.has(child.id))
-                    ? colors.accent
-                    : colors.hairline,
-                borderRadius: radius.card,
-                padding: 16,
-              }}
-            >
-              <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>{parent.name}</Text>
-            </Pressable>
-            {open === parent.id
-              ? parent.children.map((child) => (
-                  <Pressable key={child.id} onPress={() => toggle(child.id)} style={{ paddingVertical: 10, paddingLeft: 16 }}>
-                    <Text
-                      style={{
-                        color: selected.has(child.id) ? colors.accent : colors.muted,
-                        fontFamily: fonts.medium,
-                        fontSize: 16,
-                      }}
+        <View style={{ paddingHorizontal: space.s20 }}>
+          {tree.map((parent) => (
+            <View key={parent.id} style={{ marginBottom: space.s12 }}>
+              <RipplePressable
+                accessibilityRole="button"
+                accessibilityLabel={parent.name}
+                onPress={() => {
+                  toggle(parent.id);
+                  setOpen(open === parent.id ? null : parent.id);
+                }}
+                style={{
+                  borderWidth: 1,
+                  borderColor:
+                    selected.has(parent.id) || parent.children.some((child) => selected.has(child.id))
+                      ? colors.accent
+                      : colors.hairline,
+                  borderRadius: radius.card,
+                  padding: space.s16,
+                  minHeight: minHit,
+                  justifyContent: "center",
+                }}
+              >
+                <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>
+                  {parent.name}
+                </Text>
+              </RipplePressable>
+              {open === parent.id
+                ? parent.children.map((child) => (
+                    <RipplePressable
+                      key={child.id}
+                      accessibilityRole="button"
+                      accessibilityLabel={child.name}
+                      onPress={() => toggle(child.id)}
+                      style={{ paddingVertical: space.s12, paddingLeft: space.s16, minHeight: minHit, justifyContent: "center" }}
                     >
-                      {child.name}
-                    </Text>
-                  </Pressable>
-                ))
-              : null}
-          </View>
-        ))}
-        {error ? <Text style={{ color: "#FF8B8B", marginTop: 8 }}>{error}</Text> : null}
-        <Pressable
-          onPress={save}
-          style={{
-            marginTop: 16,
-            height: 52,
-            borderRadius: radius.pill,
-            backgroundColor: colors.accent,
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Text style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 16 }}>Save</Text>
-        </Pressable>
+                      <Text
+                        style={{
+                          color: selected.has(child.id) ? colors.accent : colors.muted,
+                          fontFamily: fonts.medium,
+                          fontSize: 16,
+                        }}
+                      >
+                        {child.name}
+                      </Text>
+                    </RipplePressable>
+                  ))
+                : null}
+            </View>
+          ))}
+          {error ? (
+            <Text allowFontScaling style={{ color: colors.danger, marginTop: space.s8 }}>
+              {error}
+            </Text>
+          ) : null}
+          <RipplePressable
+            accessibilityRole="button"
+            accessibilityLabel="Save interests"
+            onPress={save}
+            style={{
+              marginTop: space.s16,
+              height: 56,
+              minHeight: minHit,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 16 }}>
+              Save
+            </Text>
+          </RipplePressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );

@@ -22,8 +22,6 @@ export function SignInSheet({ visible, dimmed }: { visible: boolean; dimmed?: bo
       .catch(() => setAppleReady(false));
   }, []);
 
-  if (!visible) return null;
-
   const onApple = async () => {
     setError("");
     try {
@@ -47,7 +45,7 @@ export function SignInSheet({ visible, dimmed }: { visible: boolean; dimmed?: bo
   };
 
   return (
-    <Sheet dimmed={dimmed}>
+    <Sheet visible={visible} dimmed={dimmed}>
       <Text
         allowFontScaling
         maxFontSizeMultiplier={1.3}

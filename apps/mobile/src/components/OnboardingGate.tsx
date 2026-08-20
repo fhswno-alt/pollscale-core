@@ -6,7 +6,7 @@ import { trackFunnel } from "../lib/analytics";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
 import type { TopicNode } from "../lib/types";
-import { colors, fonts, radius } from "../theme";
+import { colors, fonts, minHit, radius, space, type } from "../theme";
 import { DateOfBirthField } from "./DateOfBirthField";
 import { RipplePressable } from "./RipplePressable";
 
@@ -18,6 +18,29 @@ function parentCount(tree: TopicNode[], selected: Set<string>) {
   }
   return count;
 }
+
+const STEPS = [
+  {
+    title: "What should we call you?",
+    body: "First name is enough. You can change how you show up later.",
+  },
+  {
+    title: "Pick a username.",
+    body: "2–24 letters, numbers, or underscore. Make it yours.",
+  },
+  {
+    title: "When’s your birthday?",
+    body: "You need to be 13 or older. Use the date picker.",
+  },
+  {
+    title: "Where are you?",
+    body: "Optional. Only boosts polls that are actually about that place.",
+  },
+  {
+    title: "What are you into?",
+    body: "Pick at least three topics. Open one if you want to get more specific.",
+  },
+] as const;
 
 export function OnboardingGate() {
   const session = useSession();
@@ -82,6 +105,8 @@ export function OnboardingGate() {
     }
   };
 
+  const current = STEPS[step];
+
   return (
     <View
       style={{
@@ -93,20 +118,34 @@ export function OnboardingGate() {
         backgroundColor: colors.canvas,
       }}
     >
-      <ScrollView contentContainerStyle={{ padding: 22, paddingTop: Math.max(insets.top, 24) + 24, paddingBottom: Math.max(insets.bottom, 24) + 16 }}>
-        <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ color: colors.text, fontFamily: fonts.black, fontSize: 36, letterSpacing: -1.2 }}>
-          {step === 0 ? "Your name" : step === 1 ? "Username" : step === 2 ? "Birthday" : step === 3 ? "City" : "Interests"}
+      <ScrollView
+        contentContainerStyle={{
+          paddingHorizontal: space.s24,
+          paddingTop: Math.max(insets.top, space.s24) + space.s24,
+          paddingBottom: Math.max(insets.bottom, space.s24) + space.s16,
+        }}
+      >
+        <View style={{ flexDirection: "row", gap: space.s8, marginBottom: space.s24 }}>
+          {STEPS.map((item, index) => (
+            <View
+              key={item.title}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                backgroundColor: index === step ? colors.accent : index < step ? colors.hairlineStrong : colors.chip,
+              }}
+            />
+          ))}
+        </View>
+        <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ ...type.display, color: colors.text }}>
+          {current.title}
         </Text>
-        <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, marginTop: 8, marginBottom: 18 }}>
-          {step === 0
-            ? "First name is enough."
-            : step === 1
-              ? "2–24 letters, numbers, underscore. dave, admin, official and slurs are blocked."
-              : step === 2
-                ? "You must be 13 or older. Use the date picker."
-                : step === 3
-                  ? "Optional. Only boosts polls actually about that place."
-                  : "Pick at least three parent topics. Open one to add subtopics."}
+        <Text
+          allowFontScaling
+          style={{ ...type.body, color: colors.muted, marginTop: space.s8, marginBottom: space.s24 }}
+        >
+          {current.body}
         </Text>
         {step === 0 ? (
           <TextInput
@@ -139,7 +178,7 @@ export function OnboardingGate() {
         ) : null}
         {step === 4
           ? tree.map((parent) => (
-              <View key={parent.id} style={{ marginBottom: 12 }}>
+              <View key={parent.id} style={{ marginBottom: space.s12 }}>
                 <RipplePressable
                   accessibilityRole="button"
                   accessibilityLabel={parent.name}
@@ -149,14 +188,19 @@ export function OnboardingGate() {
                   }}
                   style={{
                     borderWidth: 1,
-                    borderColor: selected.has(parent.id) || parent.children.some((c) => selected.has(c.id))
-                      ? colors.accent
-                      : colors.hairline,
+                    borderColor:
+                      selected.has(parent.id) || parent.children.some((c) => selected.has(c.id))
+                        ? colors.accent
+                        : colors.hairline,
                     borderRadius: radius.card,
-                    padding: 16,
+                    padding: space.s16,
+                    minHeight: minHit,
+                    justifyContent: "center",
                   }}
                 >
-                  <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>{parent.name}</Text>
+                  <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>
+                    {parent.name}
+                  </Text>
                 </RipplePressable>
                 {open === parent.id
                   ? parent.children.map((child) => (
@@ -165,7 +209,7 @@ export function OnboardingGate() {
                         accessibilityRole="button"
                         accessibilityLabel={child.name}
                         onPress={() => toggle(child.id)}
-                        style={{ paddingVertical: 10, paddingLeft: 16 }}
+                        style={{ paddingVertical: space.s12, paddingLeft: space.s16, minHeight: minHit, justifyContent: "center" }}
                       >
                         <Text
                           style={{
@@ -182,7 +226,11 @@ export function OnboardingGate() {
               </View>
             ))
           : null}
-        {error ? <Text allowFontScaling style={{ color: "#FF8B8B", marginTop: 8 }}>{error}</Text> : null}
+        {error ? (
+          <Text allowFontScaling style={{ color: colors.danger, marginTop: space.s8 }}>
+            {error}
+          </Text>
+        ) : null}
         <RipplePressable
           accessibilityRole="button"
           accessibilityLabel={step < 4 ? "Continue" : "Save interests"}
@@ -206,8 +254,9 @@ export function OnboardingGate() {
             save();
           }}
           style={{
-            marginTop: 20,
-            height: 52,
+            marginTop: space.s20,
+            height: 56,
+            minHeight: minHit,
             borderRadius: radius.pill,
             backgroundColor: colors.accent,
             alignItems: "center",
@@ -223,9 +272,11 @@ export function OnboardingGate() {
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => setStep(step - 1)}
-            style={{ marginTop: 16, alignItems: "center" }}
+            style={{ marginTop: space.s16, alignItems: "center", minHeight: minHit, justifyContent: "center" }}
           >
-            <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>Back</Text>
+            <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
+              Back
+            </Text>
           </RipplePressable>
         ) : null}
       </ScrollView>
@@ -240,5 +291,6 @@ const field = {
   color: colors.text,
   fontFamily: fonts.bold,
   fontSize: 20,
-  padding: 14,
+  padding: space.s16,
+  minHeight: 56,
 };

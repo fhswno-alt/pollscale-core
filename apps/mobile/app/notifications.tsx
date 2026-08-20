@@ -1,14 +1,14 @@
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GroupedRow, GroupedSection, ScreenBack, ScreenTitle } from "../src/components/GroupedList";
 import { RipplePressable } from "../src/components/RipplePressable";
 import { api } from "../src/lib/api";
 import { errorMessage, reportError } from "../src/lib/errors";
 import { hasNotificationPermission, requestPushWithCopy } from "../src/lib/push";
 import { useSession } from "../src/lib/session";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, radius, space, type } from "../src/theme";
 
 export default function NotificationsScreen() {
   const session = useSession();
@@ -31,38 +31,24 @@ export default function NotificationsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <RipplePressable
-        accessibilityRole="button"
-        accessibilityLabel="Back"
-        onPress={() => router.back()}
-        style={{ padding: 16 }}
-      >
-        <Text allowFontScaling style={{ color: colors.text, fontSize: 28 }}>
-          ‹
-        </Text>
-      </RipplePressable>
-      <Text
-        allowFontScaling
-        maxFontSizeMultiplier={1.3}
-        style={{ color: colors.text, fontFamily: fonts.black, fontSize: 40, paddingHorizontal: 22 }}
-      >
-        Notifications
-      </Text>
-      <ScrollView contentContainerStyle={{ padding: 22, gap: 14 }}>
+      <ScreenBack />
+      <ScreenTitle>Notifications</ScreenTitle>
+      <ScrollView contentContainerStyle={{ padding: space.s20, gap: space.s20 }}>
         {session.token && !pushOn ? (
           <View
             style={{
+              backgroundColor: colors.sheet,
               borderWidth: 1,
               borderColor: colors.hairline,
               borderRadius: radius.card,
-              padding: 16,
-              gap: 10,
+              padding: space.s16,
+              gap: space.s8,
             }}
           >
             <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18 }}>
               Device alerts are off
             </Text>
-            <Text allowFontScaling style={{ color: colors.muted }}>
+            <Text allowFontScaling style={{ ...type.body, color: colors.muted }}>
               In-app rows still land here. Turn on system notifications if you want a banner when someone votes or
               follows you.
             </Text>
@@ -82,10 +68,12 @@ export default function NotificationsScreen() {
               }}
               style={{
                 height: 48,
+                minHeight: minHit,
                 borderRadius: radius.pill,
                 backgroundColor: colors.accent,
                 alignItems: "center",
                 justifyContent: "center",
+                marginTop: space.s4,
               }}
             >
               <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold }}>
@@ -93,31 +81,26 @@ export default function NotificationsScreen() {
               </Text>
             </RipplePressable>
             {pushError ? (
-              <Text allowFontScaling style={{ color: "#FF8B8B" }}>
+              <Text allowFontScaling style={{ color: colors.danger }}>
                 {pushError}
               </Text>
             ) : null}
           </View>
         ) : null}
         {loadError ? (
-          <Text allowFontScaling style={{ color: "#FF8B8B" }}>
+          <Text allowFontScaling style={{ color: colors.danger }}>
             {loadError}
           </Text>
         ) : items.length === 0 ? (
-          <Text allowFontScaling style={{ color: colors.muted }}>
+          <Text allowFontScaling style={{ ...type.body, color: colors.muted }}>
             Nothing yet.
           </Text>
         ) : (
-          items.map((item) => (
-            <View key={item.id}>
-              <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18 }}>
-                {item.title}
-              </Text>
-              <Text allowFontScaling style={{ color: colors.muted, marginTop: 4 }}>
-                {item.body}
-              </Text>
-            </View>
-          ))
+          <GroupedSection>
+            {items.map((item, index) => (
+              <GroupedRow key={item.id} label={item.title} detail={item.body} last={index === items.length - 1} />
+            ))}
+          </GroupedSection>
         )}
       </ScrollView>
     </SafeAreaView>

@@ -5,7 +5,6 @@ import {
   Image,
   KeyboardAvoidingView,
   Platform,
-  Pressable,
   ScrollView,
   Text,
   TextInput,
@@ -15,10 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { SignInSheet } from "../src/components/SignInSheet";
 import { TopicChip } from "../src/components/TopicChip";
+import { RipplePressable } from "../src/components/RipplePressable";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
 import type { Topic, TopicNode } from "../src/lib/types";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, radius, space, type } from "../src/theme";
 
 type DraftOption = { label: string; image_url: string | null; local?: string };
 
@@ -55,6 +55,7 @@ export default function CreateScreen() {
     );
   }
 
+  const versus = options.length === 2;
   const ready =
     question.trim().length >= 4 &&
     options.filter((item) => item.label.trim()).length >= 2 &&
@@ -112,30 +113,29 @@ export default function CreateScreen() {
             flexDirection: "row",
             alignItems: "center",
             justifyContent: "space-between",
-            paddingHorizontal: 16,
-            paddingVertical: 8,
+            paddingHorizontal: space.s16,
+            paddingVertical: space.s8,
           }}
         >
-          <Pressable
+          <RipplePressable
             accessibilityRole="button"
             accessibilityLabel="Back"
             onPress={() => router.back()}
-            android_ripple={{ color: "rgba(232,255,61,0.18)" }}
-            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+            style={{ flexDirection: "row", alignItems: "center", gap: space.s8, minHeight: minHit }}
           >
             <Text style={{ color: colors.text, fontSize: 28, marginTop: -4 }}>‹</Text>
             <Text style={{ color: colors.text, fontFamily: fonts.medium, fontSize: 18 }}>New poll</Text>
-          </Pressable>
-          <Pressable
+          </RipplePressable>
+          <RipplePressable
             accessibilityRole="button"
             accessibilityLabel="Post poll"
             onPress={post}
             disabled={!ready}
-            android_ripple={{ color: "rgba(11,11,12,0.12)" }}
             style={{
               backgroundColor: ready ? colors.accent : "#3a3a20",
-              paddingHorizontal: 18,
-              height: 36,
+              paddingHorizontal: space.s20,
+              height: 44,
+              minHeight: minHit,
               borderRadius: radius.pill,
               alignItems: "center",
               justifyContent: "center",
@@ -144,16 +144,19 @@ export default function CreateScreen() {
             <Text style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 15 }}>
               {posting ? "Posting" : "Post"}
             </Text>
-          </Pressable>
+          </RipplePressable>
         </View>
 
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }} keyboardShouldPersistTaps="handled">
+        <ScrollView
+          contentContainerStyle={{ padding: space.s20, paddingBottom: space.s40 }}
+          keyboardShouldPersistTaps="handled"
+        >
           <View
             style={{
               borderWidth: 1,
               borderColor: colors.hairline,
               borderRadius: radius.card,
-              padding: 16,
+              padding: space.s16,
               minHeight: 120,
             }}
           >
@@ -173,111 +176,109 @@ export default function CreateScreen() {
             />
           </View>
 
-          <View style={{ marginTop: 16, gap: 10 }}>
-            {options.map((option, index) => (
-              <View
-                key={index}
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.hairline,
-                  borderRadius: radius.card,
-                  minHeight: 72,
-                  paddingHorizontal: 12,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 12,
-                }}
-              >
-                <Pressable onPress={() => pickImage(index)}>
-                  {option.local || option.image_url ? (
-                    <Image
-                      source={{ uri: option.local || option.image_url || undefined }}
-                      style={{ width: 48, height: 48, borderRadius: 10 }}
-                    />
-                  ) : (
-                    <View
-                      style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: 10,
-                        borderWidth: 1,
-                        borderColor: colors.hairline,
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      <Text style={{ color: colors.quiet, fontSize: 20 }}>+</Text>
-                    </View>
-                  )}
-                </Pressable>
-                <TextInput
-                  value={option.label}
-                  onChangeText={(label) =>
-                    setOptions((current) => current.map((item, i) => (i === index ? { ...item, label } : item)))
-                  }
-                  placeholder={`Option ${index + 1}`}
-                  placeholderTextColor={colors.quiet}
-                  style={{
-                    flex: 1,
-                    color: colors.text,
-                    fontFamily: fonts.bold,
-                    fontSize: 18,
-                  }}
-                />
+          {versus ? (
+            <View style={{ marginTop: space.s20 }}>
+              <Text allowFontScaling style={{ ...type.caption, color: colors.muted, marginBottom: space.s8 }}>
+                A vs B
+              </Text>
+              <View style={{ flexDirection: "row", gap: space.s8 }}>
+                {options.map((option, index) => (
+                  <VersusWell
+                    key={index}
+                    option={option}
+                    index={index}
+                    onPick={() => pickImage(index)}
+                    onChangeLabel={(label) =>
+                      setOptions((current) => current.map((item, i) => (i === index ? { ...item, label } : item)))
+                    }
+                  />
+                ))}
               </View>
-            ))}
-            {options.length < 4 ? (
-              <Pressable
-                onPress={() => setOptions((current) => [...current, { label: "", image_url: null }])}
-                style={{
-                  borderWidth: 1,
-                  borderStyle: "dashed",
-                  borderColor: colors.hairline,
-                  borderRadius: radius.card,
-                  height: 72,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexDirection: "row",
-                  gap: 8,
-                }}
-              >
-                <Text style={{ color: colors.quiet, fontSize: 20 }}>+</Text>
-                <Text style={{ color: colors.quiet, fontFamily: fonts.medium, fontSize: 16 }}>Add option</Text>
-              </Pressable>
-            ) : null}
-          </View>
+            </View>
+          ) : (
+            <View style={{ marginTop: space.s20, gap: space.s8 }}>
+              {options.map((option, index) => (
+                <View
+                  key={index}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.hairline,
+                    borderRadius: radius.card,
+                    minHeight: 80,
+                    paddingHorizontal: space.s12,
+                    flexDirection: "row",
+                    alignItems: "center",
+                    gap: space.s12,
+                  }}
+                >
+                  <RipplePressable onPress={() => pickImage(index)} accessibilityLabel={`Add photo ${index + 1}`}>
+                    <PhotoWell uri={option.local || option.image_url} size={64} />
+                  </RipplePressable>
+                  <TextInput
+                    value={option.label}
+                    onChangeText={(label) =>
+                      setOptions((current) => current.map((item, i) => (i === index ? { ...item, label } : item)))
+                    }
+                    placeholder={`Option ${index + 1}`}
+                    placeholderTextColor={colors.quiet}
+                    style={{
+                      flex: 1,
+                      color: colors.text,
+                      fontFamily: fonts.bold,
+                      fontSize: 18,
+                      minHeight: minHit,
+                    }}
+                  />
+                </View>
+              ))}
+            </View>
+          )}
 
-          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 18, alignItems: "center" }}>
-            <Pressable
-              onPress={() => pickImage(0)}
+          {options.length < 4 ? (
+            <RipplePressable
+              accessibilityRole="button"
+              accessibilityLabel="Add option"
+              onPress={() => setOptions((current) => [...current, { label: "", image_url: null }])}
               style={{
+                marginTop: space.s8,
                 borderWidth: 1,
+                borderStyle: "dashed",
                 borderColor: colors.hairline,
-                borderRadius: 12,
-                paddingHorizontal: 12,
-                height: 40,
+                borderRadius: radius.card,
+                height: 56,
+                minHeight: minHit,
+                alignItems: "center",
                 justifyContent: "center",
+                flexDirection: "row",
+                gap: space.s8,
               }}
             >
-              <Text style={{ color: colors.text, fontFamily: fonts.medium }}>Add photo</Text>
-            </Pressable>
-            <Pressable
+              <Text style={{ color: colors.quiet, fontSize: 20 }}>+</Text>
+              <Text style={{ color: colors.quiet, fontFamily: fonts.medium, fontSize: 16 }}>Add option</Text>
+            </RipplePressable>
+          ) : null}
+
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s8, marginTop: space.s20, alignItems: "center" }}>
+            <RipplePressable
+              accessibilityRole="button"
+              accessibilityLabel="Topic"
               onPress={() => setPickTopic((value) => !value)}
               style={{
                 borderWidth: 1,
                 borderColor: colors.hairline,
                 borderRadius: 12,
-                paddingHorizontal: 12,
+                paddingHorizontal: space.s12,
                 height: 40,
+                minHeight: 40,
                 justifyContent: "center",
               }}
             >
               <Text style={{ color: colors.text, fontFamily: fonts.medium }}>Topic</Text>
-            </Pressable>
+            </RipplePressable>
             {topic ? <TopicChip name={topic.name} icon={topic.icon} accent /> : null}
           </View>
           {pickTopic ? (
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: space.s8, marginTop: space.s12 }}>
               {topics.map((item) => (
                 <TopicChip
                   key={item.id}
@@ -292,14 +293,98 @@ export default function CreateScreen() {
               ))}
             </View>
           ) : null}
-          <Text style={{ color: colors.quiet, fontFamily: fonts.regular, fontSize: 13, marginTop: 22 }}>
-            2 to 4 options. Photos optional.
+          <Text style={{ ...type.caption, color: colors.quiet, marginTop: space.s24 }}>
+            Two photo wells make the A vs B split on For You. Add more for a stacked poll.
           </Text>
           {notice ? (
-            <Text style={{ color: colors.accent, fontFamily: fonts.medium, marginTop: 16 }}>{notice}</Text>
+            <Text style={{ color: colors.accent, fontFamily: fonts.medium, marginTop: space.s16 }}>{notice}</Text>
           ) : null}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
+  );
+}
+
+function VersusWell({
+  option,
+  index,
+  onPick,
+  onChangeLabel,
+}: {
+  option: DraftOption;
+  index: number;
+  onPick: () => void;
+  onChangeLabel: (label: string) => void;
+}) {
+  return (
+    <View
+      style={{
+        flex: 1,
+        borderWidth: 1,
+        borderColor: colors.hairline,
+        borderRadius: radius.card,
+        overflow: "hidden",
+        backgroundColor: colors.sheet,
+      }}
+    >
+      <RipplePressable accessibilityRole="button" accessibilityLabel={`Photo ${index === 0 ? "A" : "B"}`} onPress={onPick}>
+        {option.local || option.image_url ? (
+          <Image
+            source={{ uri: option.local || option.image_url || undefined }}
+            style={{ width: "100%", height: 168 }}
+          />
+        ) : (
+          <View
+            style={{
+              height: 168,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: colors.chip,
+            }}
+          >
+            <Text style={{ color: colors.quiet, fontFamily: fonts.bold, fontSize: 18 }}>
+              {index === 0 ? "A" : "B"}
+            </Text>
+            <Text style={{ color: colors.quiet, fontFamily: fonts.medium, marginTop: space.s4 }}>Add photo</Text>
+          </View>
+        )}
+      </RipplePressable>
+      <TextInput
+        value={option.label}
+        onChangeText={onChangeLabel}
+        placeholder={index === 0 ? "Option A" : "Option B"}
+        placeholderTextColor={colors.quiet}
+        style={{
+          color: colors.text,
+          fontFamily: fonts.bold,
+          fontSize: 16,
+          paddingHorizontal: space.s12,
+          paddingVertical: space.s12,
+          minHeight: minHit,
+        }}
+      />
+    </View>
+  );
+}
+
+function PhotoWell({ uri, size }: { uri?: string | null; size: number }) {
+  if (uri) {
+    return <Image source={{ uri }} style={{ width: size, height: size, borderRadius: 12 }} />;
+  }
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: colors.hairline,
+        alignItems: "center",
+        justifyContent: "center",
+        backgroundColor: colors.chip,
+      }}
+    >
+      <Text style={{ color: colors.quiet, fontSize: 20 }}>+</Text>
+    </View>
   );
 }
