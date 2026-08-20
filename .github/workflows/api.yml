@@ -10,7 +10,26 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: api
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: pollscale
+          POSTGRES_PASSWORD: pollscale
+          POSTGRES_DB: pollscale_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pollscale"
+          --health-interval 3s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql+psycopg2://pollscale:pollscale@127.0.0.1:5432/pollscale_test
+      AUTO_SEED: "false"
+      ALLOW_DEV_AUTH: "true"
+      POLLSCALE_ENV: test
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5

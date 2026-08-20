@@ -1,0 +1,14 @@
+{
+  "name": "pollscale",
+  "private": true,
+  "packageManager": "pnpm@10.15.0",
+  "scripts": {
+    "dev:mobile": "pnpm --filter @pollscale/mobile start",
+    "dev:web": "pnpm --filter @pollscale/web dev",
+    "dev:admin": "pnpm --filter @pollscale/admin dev",
+    "dev:api": "pnpm --filter @pollscale/api dev",
+    "test:api": "pnpm --filter @pollscale/api test",
+    "build:web": "pnpm --filter @pollscale/web build",
+    "build:admin": "pnpm --filter @pollscale/admin build"
+  }
+}
