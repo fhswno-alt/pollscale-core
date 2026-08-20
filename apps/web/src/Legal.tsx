@@ -45,6 +45,15 @@ const PAGES = {
       "To report a poll: open the ··· menu → Report. Pick a reason.",
     ],
   },
+  deleteAccount: {
+    title: "Delete your account",
+    body: [
+      "Google Play requires a web way to delete an account. Pollscale also deletes from the app: sign in → You → Delete account.",
+      "That removes your profile, polls, follows, notifications, and push tokens. Vote rows that belong to you are dropped. The action cannot be undone.",
+      "If you cannot open the app, email support@pollscale.com from the address on the account. Include your username. We will delete the account the same way the in-app control does.",
+      "Legal requests: legal@pollscale.com.",
+    ],
+  },
 } as const;
 
 export function Legal({ kind }: { kind: keyof typeof PAGES }) {

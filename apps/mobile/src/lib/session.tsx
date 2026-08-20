@@ -8,6 +8,7 @@ import { Platform } from "react-native";
 
 import { identifyUser } from "./analytics";
 import { ALLOW_DEV_AUTH, GOOGLE_CLIENT_ID, api } from "./api";
+import { isCancel, reportError } from "./errors";
 import type { Feed, SessionUser } from "./types";
 
 WebBrowser.maybeCompleteAuthSession();
@@ -90,8 +91,8 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           const me = await api.me(id, storedToken);
           setUser(me);
           identifyUser({ userId: me.id, deviceId: id });
-        } catch {
-          // token may be stale
+        } catch (error) {
+          reportError(error, { context: "session_restore" });
         }
       }
       setReady(true);
@@ -100,12 +101,17 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (googleResponse?.type === "success" && googleResponse.params.id_token && deviceId) {
-      api.google(googleResponse.params.id_token, deviceId).then(async (res) => {
-        await memorySet(TOKEN_KEY, res.access_token);
-        setToken(res.access_token);
-        setUser(res.user);
-        identifyUser({ userId: res.user.id, deviceId });
-      });
+      api
+        .google(googleResponse.params.id_token, deviceId)
+        .then(async (res) => {
+          await memorySet(TOKEN_KEY, res.access_token);
+          setToken(res.access_token);
+          setUser(res.user);
+          identifyUser({ userId: res.user.id, deviceId });
+        })
+        .catch((error) => {
+          reportError(error, { context: "google_token_exchange" });
+        });
     }
   }, [googleResponse, deviceId]);
 
@@ -125,6 +131,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const finishDev = async (label: string) => {
+    if (!ALLOW_DEV_AUTH) {
+      throw new Error("Dev auth is off");
+    }
     const res = await api.devAuth(label, deviceId);
     await memorySet(TOKEN_KEY, res.access_token);
     setToken(res.access_token);
@@ -133,16 +142,20 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInApple = async () => {
-    if (ALLOW_DEV_AUTH && (Platform.OS !== "ios" || !AppleAuthentication.isAvailableAsync)) {
-      await finishDev("Apple Tester");
-      return;
-    }
+    let available = false;
     try {
-      const available = await AppleAuthentication.isAvailableAsync();
-      if (!available) {
-        if (ALLOW_DEV_AUTH) await finishDev("Apple Tester");
+      available = Platform.OS === "ios" && (await AppleAuthentication.isAvailableAsync());
+    } catch (error) {
+      reportError(error, { context: "apple_available" });
+    }
+    if (!available) {
+      if (ALLOW_DEV_AUTH) {
+        await finishDev("Apple Tester");
         return;
       }
+      throw new Error("Apple Sign In is not available on this device");
+    }
+    try {
       const credential = await AppleAuthentication.signInAsync({
         requestedScopes: [
           AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
@@ -159,28 +172,34 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setUser(res.user);
       identifyUser({ userId: res.user.id, deviceId });
     } catch (error) {
-      if (ALLOW_DEV_AUTH) await finishDev("Apple Tester");
-      else throw error;
+      if (isCancel(error)) return;
+      reportError(error, { context: "apple_sign_in" });
+      throw error;
     }
   };
 
   const signInGoogle = async () => {
-    if (!GOOGLE_CLIENT_ID || ALLOW_DEV_AUTH) {
-      if (GOOGLE_CLIENT_ID) {
-        const result = await promptGoogle();
-        if (result?.type === "success" && result.params.id_token) {
-          const res = await api.google(result.params.id_token, deviceId);
-          await memorySet(TOKEN_KEY, res.access_token);
-          setToken(res.access_token);
-          setUser(res.user);
-          identifyUser({ userId: res.user.id, deviceId });
-          return;
-        }
+    if (!GOOGLE_CLIENT_ID) {
+      if (ALLOW_DEV_AUTH) {
+        await finishDev("Google Tester");
+        return;
       }
-      if (ALLOW_DEV_AUTH) await finishDev("Google Tester");
-      return;
+      throw new Error("Google Sign In is not configured");
     }
-    await promptGoogle();
+    try {
+      const result = await promptGoogle();
+      if (result?.type === "success" && result.params.id_token) {
+        const res = await api.google(result.params.id_token, deviceId);
+        await memorySet(TOKEN_KEY, res.access_token);
+        setToken(res.access_token);
+        setUser(res.user);
+        identifyUser({ userId: res.user.id, deviceId });
+      }
+    } catch (error) {
+      if (isCancel(error)) return;
+      reportError(error, { context: "google_sign_in" });
+      throw error;
+    }
   };
 
   const signOut = async () => {

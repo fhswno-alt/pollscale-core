@@ -1,9 +1,11 @@
 import { router } from "expo-router";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
 import { useSession } from "../lib/session";
 import { colors, fonts } from "../theme";
+import { GlassSurface } from "./GlassSurface";
 import { LogoMark } from "./LogoMark";
+import { RipplePressable } from "./RipplePressable";
 import { TopicChip } from "./TopicChip";
 
 export function BrandHeader({
@@ -19,33 +21,42 @@ export function BrandHeader({
 }) {
   const session = useSession();
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "space-between",
-        paddingHorizontal: 20,
-        paddingTop: 6,
-        paddingBottom: 8,
-      }}
-    >
-      <Pressable
-        onPress={() => session.token && router.push("/you")}
-        style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+    <GlassSurface fallbackColor={colors.canvas} glassEffectStyle="clear">
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingHorizontal: 20,
+          paddingTop: 6,
+          paddingBottom: 8,
+        }}
       >
-        <LogoMark />
-        <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.3 }}>
-          Pollscale
-        </Text>
-      </Pressable>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-        {showActions && session.token ? (
-          <Pressable onPress={() => router.push("/create")} hitSlop={10}>
-            <Text style={{ color: colors.accent, fontFamily: fonts.bold, fontSize: 28, marginTop: -4 }}>+</Text>
-          </Pressable>
-        ) : null}
-        {topicName ? <TopicChip name={topicName} icon={topicIcon} onPress={onTopic} /> : null}
+        <RipplePressable
+          accessibilityRole="button"
+          accessibilityLabel="You"
+          onPress={() => session.token && router.push("/you")}
+          style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+        >
+          <LogoMark />
+          <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18, letterSpacing: -0.3 }}>
+            Pollscale
+          </Text>
+        </RipplePressable>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+          {showActions && session.token ? (
+            <RipplePressable
+              accessibilityRole="button"
+              accessibilityLabel="Post a poll"
+              onPress={() => router.push("/create")}
+              hitSlop={10}
+            >
+              <Text allowFontScaling style={{ color: colors.accent, fontFamily: fonts.bold, fontSize: 28, marginTop: -4 }}>+</Text>
+            </RipplePressable>
+          ) : null}
+          {topicName ? <TopicChip name={topicName} icon={topicIcon} onPress={onTopic} /> : null}
+        </View>
       </View>
-    </View>
+    </GlassSurface>
   );
 }

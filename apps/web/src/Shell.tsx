@@ -13,6 +13,7 @@ export function Shell() {
           <NavLink to="/privacy">Privacy</NavLink>
           <NavLink to="/terms">Terms</NavLink>
           <NavLink to="/support">Support</NavLink>
+          <NavLink to="/delete-account">Delete account</NavLink>
         </nav>
       </header>
       <Outlet />

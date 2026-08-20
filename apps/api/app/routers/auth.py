@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -43,6 +43,7 @@ from app.schemas import (
     TopicOut,
     UserOut,
 )
+from app.rate_limit import limit_auth
 from app.taxonomy import unique_parent_ids
 
 router = APIRouter(tags=["auth"])
@@ -115,7 +116,7 @@ def _set_interests(db: Session, user: User, topic_ids: list[str]) -> list[Topic]
     return topics
 
 
-@router.post("/auth/apple", response_model=TokenOut)
+@router.post("/auth/apple", response_model=TokenOut, dependencies=[Depends(limit_auth)])
 def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
     try:
         claims = verify_apple_token(body.identity_token)
@@ -134,7 +135,7 @@ def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
     return _token(user, db)
 
 
-@router.post("/auth/google", response_model=TokenOut)
+@router.post("/auth/google", response_model=TokenOut, dependencies=[Depends(limit_auth)])
 def auth_google(body: GoogleAuthIn, db: DbDep) -> TokenOut:
     try:
         claims = verify_google_token(body.id_token)
@@ -154,7 +155,7 @@ def auth_google(body: GoogleAuthIn, db: DbDep) -> TokenOut:
     return _token(user, db)
 
 
-@router.post("/auth/dev", response_model=TokenOut)
+@router.post("/auth/dev", response_model=TokenOut, dependencies=[Depends(limit_auth)])
 def auth_dev(body: DevAuthIn, db: DbDep) -> TokenOut:
     if not get_settings().allow_dev_auth:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not found")

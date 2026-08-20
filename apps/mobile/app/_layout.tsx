@@ -12,9 +12,13 @@ import { useEffect } from "react";
 import { View } from "react-native";
 
 import { AppChrome } from "../src/components/AppChrome";
+import { RootErrorBoundary } from "../src/components/ErrorBoundary";
 import { SessionProvider } from "../src/lib/session";
+import { initSentry } from "../src/lib/sentry";
+import { checkForHotfix } from "../src/lib/updates";
 import { colors } from "../src/theme";
 
+initSentry();
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 export default function RootLayout() {
@@ -29,22 +33,30 @@ export default function RootLayout() {
     if (loaded) SplashScreen.hideAsync().catch(() => undefined);
   }, [loaded]);
 
+  useEffect(() => {
+    checkForHotfix();
+  }, []);
+
   if (!loaded) return <View style={{ flex: 1, backgroundColor: colors.canvas }} />;
 
   return (
-    <SessionProvider>
-      <View style={{ flex: 1, backgroundColor: colors.canvas }}>
-        <StatusBar style="light" />
-        <AppChrome>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.canvas },
-              animation: "fade",
-            }}
-          />
-        </AppChrome>
-      </View>
-    </SessionProvider>
+    <RootErrorBoundary>
+      <SessionProvider>
+        <View style={{ flex: 1, backgroundColor: colors.canvas }}>
+          <StatusBar style="light" />
+          <AppChrome>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: colors.canvas },
+                animation: "fade",
+                gestureEnabled: true,
+                animationTypeForReplace: "push",
+              }}
+            />
+          </AppChrome>
+        </View>
+      </SessionProvider>
+    </RootErrorBoundary>
   );
 }

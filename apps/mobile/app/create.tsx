@@ -116,13 +116,22 @@ export default function CreateScreen() {
             paddingVertical: 8,
           }}
         >
-          <Pressable onPress={() => router.back()} style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => router.back()}
+            android_ripple={{ color: "rgba(232,255,61,0.18)" }}
+            style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+          >
             <Text style={{ color: colors.text, fontSize: 28, marginTop: -4 }}>‹</Text>
             <Text style={{ color: colors.text, fontFamily: fonts.medium, fontSize: 18 }}>New poll</Text>
           </Pressable>
           <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Post poll"
             onPress={post}
             disabled={!ready}
+            android_ripple={{ color: "rgba(11,11,12,0.12)" }}
             style={{
               backgroundColor: ready ? colors.accent : "#3a3a20",
               paddingHorizontal: 18,

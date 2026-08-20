@@ -35,6 +35,15 @@ def _clean_score(text: str, image_urls=None) -> ModerationResult:
     return ModerationResult(flagged=False, scored=True, source="test")
 
 
+@pytest.fixture(autouse=True)
+def _reset_rate_limits():
+    from app.rate_limit import reset_limits
+
+    reset_limits()
+    yield
+    reset_limits()
+
+
 @pytest.fixture()
 def db_session(tmp_path, monkeypatch):
     monkeypatch.setenv("MEDIA_DIR", str(tmp_path / "media"))

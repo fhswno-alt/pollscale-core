@@ -139,6 +139,8 @@ def verify_google_token(id_token: str) -> dict[str, Any]:
             settings.google_client_id,
         )
     except Exception:
+        if settings.is_production:
+            raise AuthError("invalid Google token") from None
         claims = jwt.decode(id_token, options={"verify_signature": False})
         if claims.get("aud") != settings.google_client_id:
             raise AuthError("invalid Google token") from None
