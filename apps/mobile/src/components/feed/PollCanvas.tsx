@@ -57,6 +57,7 @@ export function PollCanvas({
   const incoming = useSharedValue(1);
   const reduce = useSharedValue(reduceMotion);
   const locked = useSharedValue(busy);
+  const pageId = useSharedValue("");
 
   useEffect(() => {
     reduce.value = reduceMotion;
@@ -64,14 +65,22 @@ export function PollCanvas({
   }, [busy, reduce, reduceMotion, locked]);
 
   useEffect(() => {
-    translateY.value = 0;
-    if (reduceMotion) {
-      incoming.value = 1;
-      return;
-    }
-    incoming.value = 0;
-    incoming.value = withTiming(1, { duration: motion.duration.in, easing: motion.easing });
-  }, [incoming, poll.id, reduceMotion, translateY]);
+    pageId.value = poll.id;
+  }, [pageId, poll.id]);
+
+  useAnimatedReaction(
+    () => pageId.value,
+    (current, previous) => {
+      if (!current || current === previous) return;
+      translateY.value = 0;
+      if (reduce.value) {
+        incoming.value = 1;
+        return;
+      }
+      incoming.value = 0;
+      incoming.value = withTiming(1, { duration: motion.duration.in, easing: motion.easing });
+    },
+  );
 
   const advance = () => {
     if (busy) return;

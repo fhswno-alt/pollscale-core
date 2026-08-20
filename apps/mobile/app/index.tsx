@@ -47,7 +47,10 @@ export default function VoteScreen() {
   const [feedError, setFeedError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const pollRef = useRef<Poll | null>(null);
-  pollRef.current = poll;
+
+  useEffect(() => {
+    pollRef.current = poll;
+  }, [poll]);
 
   const voted = !!poll?.viewer_vote_option_id;
 
