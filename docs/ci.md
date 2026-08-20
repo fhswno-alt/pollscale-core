@@ -28,8 +28,8 @@ A PR that only touches `apps/mobile/**` does not run API, web, or admin. A PR th
 
 ## What each job does
 
-- **API** — Python 3.12, pip cache, `ruff check`, pytest against a Postgres 16 service, `docker build` of `apps/api` (no push).
-- **Web / Admin** — pnpm from `packageManager` (`pnpm@10.15.0`), store cache, `typecheck`, `lint`, `build`.
+- **API** — `astral-sh/setup-uv`, `uv sync --frozen`, `uv run ruff check`, `uv run pytest` against a Postgres 16 service, `docker build` of `apps/api` (no push).
+- **Web / Admin** — pnpm from `packageManager` (`pnpm@10.15.0`), store cache, `typecheck`, `lint`, `next build`.
 - **Mobile** — same pnpm setup, `typecheck`, `lint`, `expo export --platform web` (JS bundle on Ubuntu). No EAS, no Xcode, no Maestro/Detox/Playwright.
 - **Secret scan** — Gitleaks in Docker. No extra secrets.
 

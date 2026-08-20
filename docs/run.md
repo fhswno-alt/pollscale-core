@@ -11,12 +11,15 @@ pnpm --filter @pollscale/web dev               # marketing + legal :5173
 pnpm --filter @pollscale/admin dev             # email + TOTP queue :5174
 ```
 
-API tests expect Postgres:
+API tests expect Postgres. The source of truth is `apps/api/pyproject.toml` + `uv.lock`:
 
 ```bash
 # compose already up, or a CI Postgres service
+cd apps/api && uv sync
 DATABASE_URL=postgresql+psycopg2://pollscale:pollscale@127.0.0.1:5432/pollscale_test \
-  pnpm test:api
+  uv run pytest
+# or from the repo root:
+# DATABASE_URL=... pnpm test:api
 ```
 
 `.env.example` ships `ALLOW_DEV_AUTH=false` and `EXPO_PUBLIC_ALLOW_DEV_AUTH=false`. On a laptop, set both to `true` if you need `/auth/dev`. Production (`POLLSCALE_ENV=production`) refuses to boot if either is true, if `JWT_SECRET` is default/short, or if `CORS_ORIGINS` is missing/`*`.

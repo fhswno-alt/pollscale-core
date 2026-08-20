@@ -1,4 +1,11 @@
-const PAGES = {
+export type LegalKind = "privacy" | "terms" | "guidelines" | "support" | "deleteAccount";
+
+export type LegalPage = {
+  title: string;
+  body: readonly string[];
+};
+
+const PAGES: Record<LegalKind, LegalPage> = {
   privacy: {
     title: "Privacy Policy",
     body: [
@@ -54,16 +61,8 @@ const PAGES = {
       "Legal requests: legal@pollscale.com.",
     ],
   },
-} as const;
+};
 
-export function Legal({ kind }: { kind: keyof typeof PAGES }) {
-  const page = PAGES[kind];
-  return (
-    <main className="page legal">
-      <h1>{page.title}</h1>
-      {page.body.map((paragraph) => (
-        <p key={paragraph}>{paragraph}</p>
-      ))}
-    </main>
-  );
+export async function getLegalPage(kind: LegalKind): Promise<LegalPage> {
+  return PAGES[kind];
 }

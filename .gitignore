@@ -13,6 +13,8 @@ node_modules/
 apps/*/node_modules/
 apps/*/.expo/
 apps/*/dist/
+apps/*/.next/
+*.tsbuildinfo
 *.log
 .idea/
 .vscode/
