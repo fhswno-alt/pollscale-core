@@ -1,13 +1,14 @@
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GroupedRow, GroupedSection, ScreenBack, ScreenTitle } from "../src/components/GroupedList";
+import { RipplePressable } from "../src/components/RipplePressable";
 import { SignInSheet } from "../src/components/SignInSheet";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
 import type { Person } from "../src/lib/types";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, space, type } from "../src/theme";
 
 export default function PeopleScreen() {
   const session = useSession();
@@ -32,66 +33,57 @@ export default function PeopleScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <Pressable onPress={() => router.back()} style={{ paddingHorizontal: 18, paddingVertical: 10 }}>
-        <Text style={{ color: colors.text, fontSize: 28 }}>‹</Text>
-      </Pressable>
-      <Text
-        style={{
-          color: colors.text,
-          fontFamily: fonts.black,
-          fontSize: 40,
-          letterSpacing: -1.4,
-          paddingHorizontal: 22,
-        }}
-      >
-        People
-      </Text>
-      <ScrollView contentContainerStyle={{ padding: 22, gap: 10 }}>
-        {people.map((person) => (
-          <View
-            key={person.id}
-            style={{
-              borderWidth: 1,
-              borderColor: colors.hairline,
-              borderRadius: radius.card,
-              padding: 18,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View>
-              <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18 }}>
-                {person.display_name}
-              </Text>
-              <Text style={{ color: colors.muted, fontFamily: fonts.medium, marginTop: 2 }}>
-                @{person.handle}
-              </Text>
-            </View>
-            <View style={{ alignItems: "flex-end", gap: 8 }}>
-              <Pressable onPress={() => toggle(person)}>
-                <Text
-                  style={{
-                    color: person.following ? colors.accent : colors.text,
-                    fontFamily: fonts.bold,
-                  }}
+      <ScreenBack />
+      <ScreenTitle>People</ScreenTitle>
+      <ScrollView contentContainerStyle={{ padding: space.s20, gap: space.s20 }}>
+        {people.length === 0 ? (
+          <Text allowFontScaling style={{ ...type.body, color: colors.muted }}>
+            Nobody here yet.
+          </Text>
+        ) : (
+          <GroupedSection>
+            {people.map((person, index) => (
+              <GroupedRow
+                key={person.id}
+                label={person.display_name}
+                detail={`@${person.handle}`}
+                last={index === people.length - 1}
+              >
+                <RipplePressable
+                  accessibilityRole="button"
+                  accessibilityLabel={person.following ? "Following" : "Follow"}
+                  onPress={() => toggle(person)}
+                  style={{ minHeight: minHit, justifyContent: "center" }}
                 >
-                  {person.following ? "Following" : "Follow"}
-                </Text>
-              </Pressable>
-              {session.token ? (
-                <Pressable
-                  onPress={async () => {
-                    await api.blockPerson(person.id, session.deviceId, session.token!);
-                    setPeople((current) => current.filter((item) => item.id !== person.id));
-                  }}
-                >
-                  <Text style={{ color: colors.quiet, fontFamily: fonts.medium }}>Hide</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        ))}
+                  <Text
+                    allowFontScaling
+                    style={{
+                      color: person.following ? colors.accent : colors.text,
+                      fontFamily: fonts.bold,
+                    }}
+                  >
+                    {person.following ? "Following" : "Follow"}
+                  </Text>
+                </RipplePressable>
+                {session.token ? (
+                  <RipplePressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Hide"
+                    onPress={async () => {
+                      await api.blockPerson(person.id, session.deviceId, session.token!);
+                      setPeople((current) => current.filter((item) => item.id !== person.id));
+                    }}
+                    style={{ minHeight: minHit, justifyContent: "center" }}
+                  >
+                    <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
+                      Hide
+                    </Text>
+                  </RipplePressable>
+                ) : null}
+              </GroupedRow>
+            ))}
+          </GroupedSection>
+        )}
       </ScrollView>
       <SignInSheet visible={sheet && !session.token} dimmed />
     </SafeAreaView>

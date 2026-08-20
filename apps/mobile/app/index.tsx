@@ -1,12 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ActivityIndicator, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { BrandHeader } from "../src/components/BrandHeader";
-import { GlassSurface } from "../src/components/GlassSurface";
-import { OptionCard } from "../src/components/OptionCard";
+import { ConfirmSheet } from "../src/components/ConfirmSheet";
+import { PollCanvas } from "../src/components/feed/PollCanvas";
 import { PollMenu } from "../src/components/PollMenu";
 import { ReportSheet } from "../src/components/ReportSheet";
 import { RipplePressable } from "../src/components/RipplePressable";
@@ -14,10 +14,10 @@ import { SignInSheet } from "../src/components/SignInSheet";
 import { trackFunnel } from "../src/lib/analytics";
 import { api } from "../src/lib/api";
 import { errorMessage, reportError } from "../src/lib/errors";
-import { hapticSkip, hapticVote } from "../src/lib/haptics";
+import { hapticNext, hapticSkip, hapticVote } from "../src/lib/haptics";
 import { useSession } from "../src/lib/session";
 import type { Poll } from "../src/lib/types";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, minHit, radius, space, type } from "../src/theme";
 
 async function recordDwell(
   pollId: string,
@@ -33,30 +33,29 @@ async function recordDwell(
   });
 }
 
-function formatVotes(n: number) {
-  if (n >= 10000) return `${(n / 1000).toFixed(1).replace(/\.0$/, "")}K votes`;
-  return `${n.toLocaleString()} votes`;
-}
-
 export default function VoteScreen() {
   const session = useSession();
+  const insets = useSafeAreaInsets();
   const [poll, setPoll] = useState<Poll | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [report, setReport] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [shownAt, setShownAt] = useState(0);
   const [feedError, setFeedError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const pollRef = useRef<Poll | null>(null);
+  pollRef.current = poll;
 
   const voted = !!poll?.viewer_vote_option_id;
-  const photo = !!poll?.options.some((option) => option.image_url);
-  const compact = (poll?.options.length ?? 0) >= 4;
 
   const loadNext = useCallback(async () => {
     if (!session.ready || !session.deviceId) return;
-    setLoading(true);
+    const keepResult = !!pollRef.current;
+    if (!keepResult) setLoading(true);
+    else setBusy(true);
     setFeedError(null);
     try {
       const feed = await api.feed(session.deviceId, session.token);
@@ -66,10 +65,15 @@ export default function VoteScreen() {
       if (!session.token && feed.guest_votes_used >= 3) setSheet(true);
     } catch (error) {
       reportError(error, { context: "feed_next" });
-      setPoll(null);
-      setFeedError(errorMessage(error, "Couldn’t load For You."));
+      if (!keepResult) {
+        setPoll(null);
+        setFeedError(errorMessage(error, "Couldn’t load For You."));
+      } else {
+        setActionError(errorMessage(error, "Couldn’t load the next poll."));
+      }
     } finally {
       setLoading(false);
+      setBusy(false);
     }
     // session.applyFeed is stable enough for this load cycle.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -79,12 +83,20 @@ export default function VoteScreen() {
     void loadNext();
   }, [loadNext, session.token]);
 
-  const vote = async (optionId: string) => {
-    if (!poll || voted || busy) return;
+  const sendDwell = (pollId: string) =>
+    recordDwell(pollId, shownAt, session.deviceId, session.token);
+
+  const guestBlocked = () => {
     if (!session.token && session.guestVotesUsed >= 3) {
       setSheet(true);
-      return;
+      return true;
     }
+    return false;
+  };
+
+  const vote = async (optionId: string) => {
+    if (!poll || voted || busy) return;
+    if (guestBlocked()) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -113,11 +125,9 @@ export default function VoteScreen() {
     }
   };
 
-  const sendDwell = (pollId: string) =>
-    recordDwell(pollId, shownAt, session.deviceId, session.token);
-
   const skip = async () => {
     if (!poll || voted || busy) return;
+    if (guestBlocked()) return;
     setBusy(true);
     setActionError(null);
     try {
@@ -135,11 +145,8 @@ export default function VoteScreen() {
   };
 
   const next = () => {
-    if (!session.token && session.guestVotesUsed >= 3) {
-      setSheet(true);
-      return;
-    }
-    setPoll(null);
+    if (guestBlocked()) return;
+    void hapticNext();
     loadNext();
   };
 
@@ -158,204 +165,58 @@ export default function VoteScreen() {
     }
   };
 
-  const winning = poll
-    ? Math.max(...poll.options.map((option) => option.percent ?? -1))
-    : -1;
+  const deletePoll = async () => {
+    if (!poll || !session.token) return;
+    setConfirmDelete(false);
+    try {
+      await api.deletePoll(poll.id, session.deviceId, session.token);
+      setPoll(null);
+      loadNext();
+    } catch (error) {
+      reportError(error, { context: "delete_poll" });
+      setActionError(errorMessage(error, "Couldn’t delete that poll."));
+    }
+  };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <BrandHeader
-        topicName={poll?.topic.name}
-        topicIcon={poll?.topic.icon}
-        onTopic={onTopic}
-        showActions
-      />
+    <View style={{ flex: 1, backgroundColor: colors.canvas }}>
       {loading && !poll ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator color={colors.accent} />
+        <View style={{ flex: 1 }}>
+          <BrandHeader overlay showActions />
+          <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+            <ActivityIndicator color={colors.accent} />
+          </View>
         </View>
       ) : feedError ? (
-        <View style={{ flex: 1, padding: 24, justifyContent: "center" }}>
-          <Text
-            allowFontScaling
-            maxFontSizeMultiplier={1.3}
-            style={{ color: colors.text, fontFamily: fonts.black, fontSize: 40, letterSpacing: -1.4 }}
-          >
-            Couldn’t load For You.
-          </Text>
-          <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 16, marginTop: 10 }}>
-            {feedError}
-          </Text>
-          <RipplePressable
-            accessibilityRole="button"
-            accessibilityLabel="Retry feed"
-            onPress={loadNext}
-            style={{
-              marginTop: 28,
-              height: 56,
-              borderRadius: radius.pill,
-              backgroundColor: colors.accent,
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 18 }}>
-              Retry
-            </Text>
-          </RipplePressable>
-        </View>
+        <FeedState
+          title="Couldn’t load For You."
+          body={feedError}
+          action="Retry"
+          onAction={loadNext}
+          top={insets.top}
+        />
       ) : !poll ? (
-        <View style={{ flex: 1, padding: 24, justifyContent: "center" }}>
-          <Text
-            allowFontScaling
-            maxFontSizeMultiplier={1.3}
-            style={{ color: colors.text, fontFamily: fonts.black, fontSize: 40, letterSpacing: -1.4 }}
-          >
-            You are caught up.
-          </Text>
-          <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, fontSize: 16, marginTop: 10 }}>
-            Follow topics and people, or post a poll of your own.
-          </Text>
-          {session.token ? (
-            <RipplePressable
-              accessibilityRole="button"
-              accessibilityLabel="Post a poll"
-              onPress={() => router.push("/create")}
-              style={{
-                marginTop: 28,
-                height: 56,
-                borderRadius: radius.pill,
-                backgroundColor: colors.accent,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 18 }}>
-                Post a poll
-              </Text>
-            </RipplePressable>
-          ) : null}
-        </View>
+        <FeedState
+          title="That’s the lot."
+          body="Follow topics and people to keep For You moving. Or post something people will actually pick."
+          action={session.token ? "Post a poll" : undefined}
+          onAction={session.token ? () => router.push("/create") : undefined}
+          secondary="Follow topics"
+          onSecondary={() => router.push("/topics")}
+          top={insets.top}
+        />
       ) : (
-        <View style={{ flex: 1 }}>
-          <ScrollView
-            contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: voted ? 140 : 90, flexGrow: 1 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text
-              allowFontScaling
-              maxFontSizeMultiplier={1.35}
-              style={{
-                color: colors.text,
-                fontFamily: fonts.black,
-                fontSize: photo ? 34 : 38,
-                lineHeight: photo ? 36 : 40,
-                letterSpacing: -1.3,
-                marginTop: 18,
-                marginBottom: 22,
-              }}
-            >
-              {poll.question}
-            </Text>
-            <View style={{ gap: photo ? 12 : 10 }}>
-              {poll.options.map((option) => (
-                <OptionCard
-                  key={option.id}
-                  option={option}
-                  photo={photo}
-                  compact={compact}
-                  results={voted}
-                  winning={voted && (option.percent ?? 0) === winning && winning >= 0}
-                  onPress={() => vote(option.id)}
-                />
-              ))}
-            </View>
-            {actionError ? (
-              <Text allowFontScaling style={{ color: "#FF8B8B", fontFamily: fonts.medium, marginTop: 12 }}>
-                {actionError}
-              </Text>
-            ) : null}
-            {voted && poll.total_votes != null ? (
-              <Text
-                allowFontScaling
-                style={{
-                  color: colors.muted,
-                  fontFamily: fonts.medium,
-                  fontSize: 14,
-                  marginTop: 14,
-                }}
-              >
-                {formatVotes(poll.total_votes)}
-              </Text>
-            ) : null}
-            <View style={{ flexDirection: "row", gap: 18, marginTop: 16 }}>
-              <RipplePressable
-                accessibilityRole="button"
-                accessibilityLabel="Poll menu"
-                onPress={() => setMenu(true)}
-              >
-                <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
-                  ···
-                </Text>
-              </RipplePressable>
-              {poll.is_author ? (
-                <RipplePressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Delete poll"
-                  onPress={async () => {
-                    if (!session.token) return;
-                    try {
-                      await api.deletePoll(poll.id, session.deviceId, session.token);
-                      setPoll(null);
-                      loadNext();
-                    } catch (error) {
-                      reportError(error, { context: "delete_poll" });
-                      setActionError(errorMessage(error, "Couldn’t delete that poll."));
-                    }
-                  }}
-                >
-                  <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
-                    Delete poll
-                  </Text>
-                </RipplePressable>
-              ) : null}
-            </View>
-          </ScrollView>
-          {voted ? (
-            <GlassSurface
-              fallbackColor={colors.canvas}
-              style={{ position: "absolute", left: 12, right: 12, bottom: 12, padding: 8, borderRadius: radius.sheet }}
-            >
-              <RipplePressable
-                accessibilityRole="button"
-                accessibilityLabel="Next poll"
-                onPress={next}
-                style={{
-                  height: 56,
-                  borderRadius: radius.pill,
-                  backgroundColor: colors.accent,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 18 }}>
-                  Next poll
-                </Text>
-              </RipplePressable>
-            </GlassSurface>
-          ) : (
-            <RipplePressable
-              accessibilityRole="button"
-              accessibilityLabel="Skip this poll"
-              onPress={skip}
-              style={{ alignItems: "center", paddingBottom: 18, paddingTop: 8 }}
-            >
-              <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium, fontSize: 16 }}>
-                Skip
-              </Text>
-            </RipplePressable>
-          )}
-        </View>
+        <PollCanvas
+          poll={poll}
+          busy={busy}
+          actionError={actionError}
+          onVote={vote}
+          onSkip={skip}
+          onNext={next}
+          onMore={() => setMenu(true)}
+          onTopic={onTopic}
+          onDelete={poll.is_author ? () => setConfirmDelete(true) : undefined}
+        />
       )}
       <SignInSheet visible={(sheet || session.wall) && !session.token} dimmed />
       {menu && poll ? (
@@ -397,6 +258,94 @@ export default function VoteScreen() {
         />
       ) : null}
       {report && poll ? <ReportSheet pollId={poll.id} onClose={() => setReport(false)} /> : null}
-    </SafeAreaView>
+      <ConfirmSheet
+        visible={confirmDelete}
+        title="Delete this poll?"
+        body="It leaves For You. Votes already cast stay in the totals."
+        confirmLabel="Delete poll"
+        onConfirm={deletePoll}
+        onClose={() => setConfirmDelete(false)}
+      />
+    </View>
+  );
+}
+
+function FeedState({
+  title,
+  body,
+  action,
+  onAction,
+  secondary,
+  onSecondary,
+  top,
+}: {
+  title: string;
+  body: string;
+  action?: string;
+  onAction?: () => void;
+  secondary?: string;
+  onSecondary?: () => void;
+  top: number;
+}) {
+  return (
+    <View style={{ flex: 1 }}>
+      <BrandHeader overlay showActions />
+      <View
+        style={{
+          flex: 1,
+          paddingHorizontal: space.s24,
+          paddingTop: top + 88,
+          justifyContent: "center",
+          paddingBottom: space.s40,
+        }}
+      >
+        <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ ...type.display, color: colors.text }}>
+          {title}
+        </Text>
+        <Text
+          allowFontScaling
+          style={{ ...type.body, color: colors.muted, marginTop: space.s12, maxWidth: 320 }}
+        >
+          {body}
+        </Text>
+        {action && onAction ? (
+          <RipplePressable
+            accessibilityRole="button"
+            accessibilityLabel={action}
+            onPress={onAction}
+            style={{
+              marginTop: space.s28,
+              height: 56,
+              minHeight: minHit,
+              borderRadius: radius.pill,
+              backgroundColor: colors.accent,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 18 }}>
+              {action}
+            </Text>
+          </RipplePressable>
+        ) : null}
+        {secondary && onSecondary ? (
+          <RipplePressable
+            accessibilityRole="button"
+            accessibilityLabel={secondary}
+            onPress={onSecondary}
+            style={{
+              marginTop: action ? space.s12 : space.s28,
+              minHeight: minHit,
+              alignItems: action ? "center" : "flex-start",
+              justifyContent: "center",
+            }}
+          >
+            <Text allowFontScaling style={{ ...type.body, color: colors.quiet }}>
+              {secondary}
+            </Text>
+          </RipplePressable>
+        ) : null}
+      </View>
+    </View>
   );
 }

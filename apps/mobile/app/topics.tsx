@@ -1,14 +1,13 @@
-import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import { ScrollView, Text } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { GroupedRow, GroupedSection, ScreenBack, ScreenTitle } from "../src/components/GroupedList";
 import { SignInSheet } from "../src/components/SignInSheet";
-import { TopicChip } from "../src/components/TopicChip";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
 import type { Topic } from "../src/lib/types";
-import { colors, fonts, radius } from "../src/theme";
+import { colors, fonts, space, type } from "../src/theme";
 
 export default function TopicsScreen() {
   const session = useSession();
@@ -33,51 +32,35 @@ export default function TopicsScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: colors.canvas }}>
-      <Pressable onPress={() => router.back()} style={{ paddingHorizontal: 18, paddingVertical: 10 }}>
-        <Text style={{ color: colors.text, fontSize: 28 }}>‹</Text>
-      </Pressable>
+      <ScreenBack />
+      <ScreenTitle>Topics</ScreenTitle>
       <Text
-        style={{
-          color: colors.text,
-          fontFamily: fonts.black,
-          fontSize: 40,
-          letterSpacing: -1.4,
-          paddingHorizontal: 22,
-        }}
+        allowFontScaling
+        style={{ ...type.body, color: colors.muted, paddingHorizontal: space.s20, marginTop: space.s8 }}
       >
-        Topics
-      </Text>
-      <Text style={{ color: colors.muted, fontFamily: fonts.medium, paddingHorizontal: 22, marginTop: 8 }}>
         Follow what you want more of. Everyone can still see every poll.
       </Text>
-      <ScrollView contentContainerStyle={{ padding: 22, gap: 10 }}>
-        {topics.map((topic) => (
-          <Pressable
-            key={topic.id}
-            onPress={() => toggle(topic)}
-            style={{
-              borderWidth: 1,
-              borderColor: topic.following ? colors.accent : colors.hairline,
-              borderRadius: radius.card,
-              padding: 18,
-              flexDirection: "row",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-              <TopicChip name={topic.name} icon={topic.icon} accent={topic.following} />
-            </View>
-            <Text
-              style={{
-                color: topic.following ? colors.accent : colors.muted,
-                fontFamily: fonts.bold,
-              }}
+      <ScrollView contentContainerStyle={{ padding: space.s20, gap: space.s20 }}>
+        <GroupedSection>
+          {topics.map((topic, index) => (
+            <GroupedRow
+              key={topic.id}
+              label={topic.name}
+              onPress={() => toggle(topic)}
+              last={index === topics.length - 1}
             >
-              {topic.following ? "Following" : "Follow"}
-            </Text>
-          </Pressable>
-        ))}
+              <Text
+                allowFontScaling
+                style={{
+                  color: topic.following ? colors.accent : colors.muted,
+                  fontFamily: fonts.bold,
+                }}
+              >
+                {topic.following ? "Following" : "Follow"}
+              </Text>
+            </GroupedRow>
+          ))}
+        </GroupedSection>
       </ScrollView>
       <SignInSheet visible={sheet && !session.token} dimmed />
     </SafeAreaView>

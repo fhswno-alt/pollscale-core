@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   AccessibilityInfo,
   Platform,
+  StyleSheet,
   View,
   type StyleProp,
   type ViewStyle,
@@ -66,7 +67,20 @@ export function GlassSurface({
   }, []);
 
   if (!available || reduceTransparency || !glass?.GlassView) {
-    return <View style={[style, { backgroundColor: fallbackColor }]}>{children}</View>;
+    return (
+      <View
+        style={[
+          {
+            backgroundColor: fallbackColor,
+            borderColor: colors.hairline,
+            borderWidth: StyleSheet.hairlineWidth,
+          },
+          style,
+        ]}
+      >
+        {children}
+      </View>
+    );
   }
 
   const NativeGlass = glass.GlassView;

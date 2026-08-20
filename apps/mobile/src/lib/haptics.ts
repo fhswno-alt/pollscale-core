@@ -19,3 +19,13 @@ export async function hapticSkip(): Promise<void> {
     // Simulator or missing native module
   }
 }
+
+export async function hapticNext(): Promise<void> {
+  if (Platform.OS === "web") return;
+  try {
+    const Haptics = await import("expo-haptics");
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  } catch {
+    // Simulator or missing native module
+  }
+}

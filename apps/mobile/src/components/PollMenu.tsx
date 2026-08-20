@@ -1,6 +1,7 @@
 import { Text } from "react-native";
 
-import { colors, fonts, radius } from "../theme";
+import { colors, fonts, minHit, space, type } from "../theme";
+import { GroupedRow, GroupedSection } from "./GroupedList";
 import { RipplePressable } from "./RipplePressable";
 import { Sheet } from "./Sheet";
 
@@ -17,40 +18,28 @@ export function PollMenu({
 }) {
   return (
     <Sheet onClose={onClose}>
-      <Row label="Relevant" onPress={onRelevant} />
-      <Row label="Not interested" onPress={onNotInterested} />
-      <Row label="Report" onPress={onReport} />
+      <Text
+        allowFontScaling
+        maxFontSizeMultiplier={1.3}
+        style={{ ...type.display, color: colors.text, marginBottom: space.s16 }}
+      >
+        More
+      </Text>
+      <GroupedSection>
+        <GroupedRow label="Relevant" onPress={onRelevant} />
+        <GroupedRow label="Not interested" onPress={onNotInterested} />
+        <GroupedRow label="Report" onPress={onReport} last />
+      </GroupedSection>
       <RipplePressable
         accessibilityRole="button"
         accessibilityLabel="Close poll menu"
         onPress={onClose}
-        style={{ marginTop: 10, alignItems: "center", padding: 10 }}
+        style={{ marginTop: space.s12, alignItems: "center", minHeight: minHit, justifyContent: "center" }}
       >
         <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
           Close
         </Text>
       </RipplePressable>
     </Sheet>
-  );
-}
-
-function Row({ label, onPress }: { label: string; onPress: () => void }) {
-  return (
-    <RipplePressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={{
-        borderWidth: 1,
-        borderColor: colors.hairline,
-        borderRadius: radius.card,
-        padding: 16,
-        marginBottom: 8,
-      }}
-    >
-      <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 18 }}>
-        {label}
-      </Text>
-    </RipplePressable>
   );
 }
