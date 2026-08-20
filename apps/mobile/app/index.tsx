@@ -1,3 +1,4 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from "react-native";
@@ -8,6 +9,7 @@ import { OptionCard } from "../src/components/OptionCard";
 import { PollMenu } from "../src/components/PollMenu";
 import { ReportSheet } from "../src/components/ReportSheet";
 import { SignInSheet } from "../src/components/SignInSheet";
+import { trackFunnel } from "../src/lib/analytics";
 import { api } from "../src/lib/api";
 import { useSession } from "../src/lib/session";
 import type { Poll } from "../src/lib/types";
@@ -65,6 +67,13 @@ export default function VoteScreen() {
       const feed = await api.vote(poll.id, optionId, session.deviceId, session.token);
       session.applyFeed(feed);
       setPoll(feed.poll);
+      if (session.token && session.guestVotesUsed === 0) {
+        const already = await AsyncStorage.getItem("pollscale.first_vote");
+        if (!already) {
+          await AsyncStorage.setItem("pollscale.first_vote", "1");
+          trackFunnel("first_vote", { userId: session.user?.id, deviceId: session.deviceId }, { poll_id: poll.id });
+        }
+      }
       if (!session.token && feed.guest_votes_used >= 3) {
         setSheet(true);
       }

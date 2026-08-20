@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
 
+import { trackFunnel } from "../lib/analytics";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
 import type { TopicNode } from "../lib/types";
@@ -26,11 +27,16 @@ export function OnboardingGate() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [open, setOpen] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const started = useRef(false);
 
   useEffect(() => {
     if (!session.deviceId || !session.token || session.user?.onboarded_at) return;
     api.taxonomy(session.deviceId).then(setTree).catch(() => undefined);
-  }, [session.deviceId, session.token, session.user?.onboarded_at]);
+    if (!started.current) {
+      started.current = true;
+      trackFunnel("onboarding_started", { userId: session.user?.id, deviceId: session.deviceId });
+    }
+  }, [session.deviceId, session.token, session.user?.onboarded_at, session.user?.id]);
 
   const parents = useMemo(() => parentCount(tree, selected), [tree, selected]);
 
@@ -60,6 +66,8 @@ export function OnboardingGate() {
         session.token!,
       );
       session.setUser(user);
+      trackFunnel("onboarding_interests", { userId: user.id, deviceId: session.deviceId });
+      trackFunnel("onboarding_completed", { userId: user.id, deviceId: session.deviceId });
     } catch (err) {
       const detail = (err as Error).message;
       if (detail === "under_13") setError("You must be 13 or older.");
@@ -182,6 +190,11 @@ export function OnboardingGate() {
               if (step === 0 && !firstName.trim()) return;
               if (step === 1 && handle.trim().length < 2) return;
               if (step === 2 && dob.trim().length < 8) return;
+              const who = { userId: session.user?.id, deviceId: session.deviceId };
+              if (step === 0) trackFunnel("onboarding_name", who);
+              if (step === 1) trackFunnel("onboarding_username", who);
+              if (step === 2) trackFunnel("onboarding_dob", who);
+              if (step === 3) trackFunnel("onboarding_city", who);
               setStep(step + 1);
               return;
             }

@@ -53,7 +53,7 @@ def upsert_user(
     avatar_url: str | None = None,
     handle: str | None = None,
     handle_hint: str | None = None,
-) -> User:
+) -> tuple[User, bool]:
     existing = db.scalar(
         select(User).where(User.provider == provider, User.provider_subject == subject)
     )
@@ -71,7 +71,7 @@ def upsert_user(
             existing.handle_set = True
         db.commit()
         db.refresh(existing)
-        return existing
+        return existing, False
 
     chosen = None
     handle_set = False
@@ -94,7 +94,7 @@ def upsert_user(
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
+    return user, True
 
 
 def _decode_oidc(token: str, jwks_url: str, issuer: str, audience: str) -> dict[str, Any]:

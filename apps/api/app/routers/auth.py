@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.analytics import track
 from app.auth import (
     AuthError,
     create_access_token,
@@ -118,7 +119,7 @@ def _set_interests(db: Session, user: User, topic_ids: list[str]) -> list[Topic]
 def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
     try:
         claims = verify_apple_token(body.identity_token)
-        user = upsert_user(
+        user, created = upsert_user(
             db,
             provider="apple",
             subject=str(claims["sub"]),
@@ -128,6 +129,8 @@ def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
         )
     except (AuthError, HandleError) as exc:
         _auth_error(exc)
+    if created:
+        track("user_signed_up", user=user)
     return _token(user, db)
 
 
@@ -135,7 +138,7 @@ def auth_apple(body: AppleAuthIn, db: DbDep) -> TokenOut:
 def auth_google(body: GoogleAuthIn, db: DbDep) -> TokenOut:
     try:
         claims = verify_google_token(body.id_token)
-        user = upsert_user(
+        user, created = upsert_user(
             db,
             provider="google",
             subject=str(claims["sub"]),
@@ -146,6 +149,8 @@ def auth_google(body: GoogleAuthIn, db: DbDep) -> TokenOut:
         )
     except (AuthError, HandleError) as exc:
         _auth_error(exc)
+    if created:
+        track("user_signed_up", user=user)
     return _token(user, db)
 
 
@@ -155,7 +160,7 @@ def auth_dev(body: DevAuthIn, db: DbDep) -> TokenOut:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="not found")
     subject = body.email or body.handle or body.display_name
     try:
-        user = upsert_user(
+        user, created = upsert_user(
             db,
             provider="dev",
             subject=subject.lower(),
@@ -166,6 +171,8 @@ def auth_dev(body: DevAuthIn, db: DbDep) -> TokenOut:
         )
     except HandleError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=exc.code) from exc
+    if created:
+        track("user_signed_up", user=user)
     return _token(user, db)
 
 
@@ -218,6 +225,11 @@ def onboard(body: OnboardingIn, user: UserDep, db: DbDep) -> UserOut:
     user.onboarded_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(user)
+    track(
+        "user_onboarded",
+        user=user,
+        properties={"topic_count": len(body.topic_ids), "city": user.city},
+    )
     return user_out(user, db)
 
 
@@ -250,6 +262,7 @@ def delete_account(user: UserDep, db: DbDep) -> None:
     db.execute(delete(Notification).where(Notification.user_id == user.id))
     db.execute(delete(PushToken).where(PushToken.user_id == user.id))
     db.execute(delete(Vote).where(Vote.user_id == user.id))
+    track("account_deleted", user=user)
     user.deleted_at = now
     user.email = None
     user.display_name = "Deleted"

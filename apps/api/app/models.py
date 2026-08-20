@@ -221,6 +221,16 @@ class Notification(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AnalyticsDigest(Base):
+    __tablename__ = "analytics_digests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    period_key: Mapped[str] = mapped_column(String(40), unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(16), index=True)
+    body: Mapped[str] = mapped_column(String(240))
+    posted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
 class PushToken(Base):
     __tablename__ = "push_tokens"
     __table_args__ = (UniqueConstraint("user_id", "token", name="uq_push_token"),)

@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.analytics import track
 from app.config import get_settings
 from app.deps import DbDep, DeviceDep, OptionalUser, UserDep, actor_key
 from app.models import Poll, PollDwell, PollFeedback, PollOption, Report, Skip, Topic, Vote
@@ -91,6 +92,9 @@ def create_poll(body: PollCreate, db: DbDep, user: UserDep, device_id: DeviceDep
             )
         )
     db.commit()
+    track("poll_created", user=user, device_id=device_id, properties={"poll_id": poll.id, "status": poll_status})
+    if poll_status == "pending_review":
+        track("poll_flagged", user=user, device_id=device_id, properties={"poll_id": poll.id})
     loaded = load_poll(db, poll.id)
     assert loaded is not None
     return PollCard.model_validate(present_poll(db, loaded, user, actor_key(user, device_id)))
@@ -105,6 +109,7 @@ def delete_poll(poll_id: str, db: DbDep, user: UserDep) -> None:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="not_author")
     poll.status = "deleted"
     db.commit()
+    track("poll_deleted", user=user, properties={"poll_id": poll.id})
 
 
 @router.post("/polls/{poll_id}/vote", response_model=FeedOut)
@@ -144,6 +149,12 @@ def vote_poll(
         db.rollback()
         raise HTTPException(status.HTTP_409_CONFLICT, detail="already_voted") from None
 
+    track(
+        "poll_voted",
+        user=user,
+        device_id=device_id,
+        properties={"poll_id": poll_id_value, "guest": user is None},
+    )
     if poll.author_id and (user is None or user.id != poll.author_id):
         notify(db, poll.author_id, "poll_voted", {"poll_id": poll_id_value})
         db.commit()
@@ -173,6 +184,7 @@ def skip_poll(poll_id: str, db: DbDep, device_id: DeviceDep, user: OptionalUser)
     db.add(skip)
     try:
         db.commit()
+        track("poll_skipped", user=user, device_id=device_id, properties={"poll_id": poll.id})
     except IntegrityError:
         db.rollback()
 
@@ -241,6 +253,12 @@ def report_poll(
     db.add(report)
     db.commit()
     db.refresh(report)
+    track(
+        "poll_reported",
+        user=user,
+        device_id=device_id,
+        properties={"poll_id": poll.id, "reason": report.reason},
+    )
     return ReportOut(id=report.id, poll_id=report.poll_id, reason=report.reason, status=report.status)
 
 

@@ -24,13 +24,13 @@ pnpm --filter @pollscale/admin dev
 
 API: `http://localhost:8000` (later `https://api.pollscale.com`). Web does not host votes.
 
-More: [docs/run.md](docs/run.md) · [docs/onboarding.md](docs/onboarding.md) · [docs/ranking.md](docs/ranking.md) · [docs/notifications.md](docs/notifications.md) · [docs/admin.md](docs/admin.md)
+More: [docs/run.md](docs/run.md) · [docs/onboarding.md](docs/onboarding.md) · [docs/ranking.md](docs/ranking.md) · [docs/notifications.md](docs/notifications.md) · [docs/admin.md](docs/admin.md) · [docs/analytics.md](docs/analytics.md)
 
 ```bash
 cd apps/api && pytest
 ```
 
-Tests: vote uniqueness, guest quota, skip, reserved usernames, report → queue, flagged poll not public, delete own poll, delete account, 13+ DOB, onboarding topics, For You ranking, admin MFA, pollscale.com domain strings.
+Tests: vote uniqueness, guest quota, skip, reserved usernames, report → queue, flagged poll not public, delete own poll, delete account, 13+ DOB, onboarding topics, For You ranking, admin MFA, pollscale.com domain strings, Slack/PostHog analytics.
 
 ## Product
 - 13+, English only. Politics allowed. NSFW and self-harm are not.

@@ -6,6 +6,7 @@ import * as WebBrowser from "expo-web-browser";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { Platform } from "react-native";
 
+import { identifyUser } from "./analytics";
 import { ALLOW_DEV_AUTH, GOOGLE_CLIENT_ID, api } from "./api";
 import type { Feed, SessionUser } from "./types";
 
@@ -86,7 +87,9 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       setToken(storedToken);
       if (storedToken && id) {
         try {
-          setUser(await api.me(id, storedToken));
+          const me = await api.me(id, storedToken);
+          setUser(me);
+          identifyUser({ userId: me.id, deviceId: id });
         } catch {
           // token may be stale
         }
@@ -101,6 +104,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
         await memorySet(TOKEN_KEY, res.access_token);
         setToken(res.access_token);
         setUser(res.user);
+        identifyUser({ userId: res.user.id, deviceId });
       });
     }
   }, [googleResponse, deviceId]);
@@ -125,6 +129,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
     await memorySet(TOKEN_KEY, res.access_token);
     setToken(res.access_token);
     setUser(res.user);
+    identifyUser({ userId: res.user.id, deviceId });
   };
 
   const signInApple = async () => {
@@ -152,6 +157,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
       await memorySet(TOKEN_KEY, res.access_token);
       setToken(res.access_token);
       setUser(res.user);
+      identifyUser({ userId: res.user.id, deviceId });
     } catch (error) {
       if (ALLOW_DEV_AUTH) await finishDev("Apple Tester");
       else throw error;
@@ -167,6 +173,7 @@ export function SessionProvider({ children }: { children: React.ReactNode }) {
           await memorySet(TOKEN_KEY, res.access_token);
           setToken(res.access_token);
           setUser(res.user);
+          identifyUser({ userId: res.user.id, deviceId });
           return;
         }
       }

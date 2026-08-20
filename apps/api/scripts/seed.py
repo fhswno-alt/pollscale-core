@@ -66,13 +66,13 @@ def seed(db: Session | None = None) -> None:
 def _seed(db: Session) -> None:
     topics = ensure_taxonomy(db)
 
-    ada = upsert_user(
+    ada, _ = upsert_user(
         db, provider="seed", subject="ada", display_name="Ada Okoye", handle_hint="ada"
     )
-    nico = upsert_user(
+    nico, _ = upsert_user(
         db, provider="seed", subject="nico", display_name="Nico Marsh", handle_hint="nico"
     )
-    june = upsert_user(
+    june, _ = upsert_user(
         db, provider="seed", subject="june", display_name="June Park", handle_hint="june"
     )
     upsert_user(

@@ -47,3 +47,7 @@ def startup() -> None:
             seed(db)
     finally:
         db.close()
+    if settings.pollscale_env.lower() != "test":
+        from app.analytics_jobs import start_scheduler
+
+        start_scheduler()

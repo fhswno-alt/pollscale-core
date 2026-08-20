@@ -35,6 +35,9 @@ class Settings(BaseSettings):
     admin_bootstrap_email: str = ""
     admin_bootstrap_password: str = ""
     expo_access_token: str = ""
+    slack_webhook_url: str = ""
+    posthog_host: str = ""
+    posthog_project_api_key: str = ""
 
     @property
     def is_production(self) -> bool:

@@ -25,4 +25,11 @@ Admin is separate: `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD`, then TO
 
 Onboarding and For You: [onboarding.md](onboarding.md) · [ranking.md](ranking.md).
 
+Analytics (PostHog + Slack + 18:00 Europe/London digests): [analytics.md](analytics.md).
+
+```bash
+docker compose --profile analytics up --build
+# PostHog UI http://localhost:8010
+```
+
 Push on a simulator: grant the permission prompt. Expo Go on a physical device can receive the v2 types. The simulator often cannot display a real push; the row still lands in **You → Notifications**.
