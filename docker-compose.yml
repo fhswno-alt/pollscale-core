@@ -54,6 +54,8 @@ services:
       SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
       POSTHOG_HOST: ${POSTHOG_HOST:-http://posthog:8000}
       POSTHOG_PROJECT_API_KEY: ${POSTHOG_PROJECT_API_KEY:-}
+      SENTRY_DSN: ${SENTRY_DSN:-}
+      CORS_ORIGINS: ${CORS_ORIGINS:-}
     ports:
       - "8000:8000"
     volumes:

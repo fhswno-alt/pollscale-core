@@ -1,5 +1,6 @@
 import { Platform } from "react-native";
 
+import { reportError } from "./errors";
 import type { Feed, Person, Poll, SessionUser, Topic, TopicNode } from "./types";
 
 const FALLBACK =
@@ -29,11 +30,19 @@ async function request<T>(path: string, opts: Opts): Promise<T> {
     headers["Content-Type"] = "application/json";
     body = JSON.stringify(opts.body);
   }
-  const response = await fetch(`${API_URL}${path}`, {
-    method: opts.method ?? "GET",
-    headers,
-    body,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_URL}${path}`, {
+      method: opts.method ?? "GET",
+      headers,
+      body,
+    });
+  } catch (error) {
+    reportError(error, { path, reason: "network" });
+    const wrapped = new Error("network");
+    (wrapped as Error & { status: number }).status = 0;
+    throw wrapped;
+  }
   if (!response.ok) {
     let detail = `http_${response.status}`;
     try {
@@ -44,6 +53,7 @@ async function request<T>(path: string, opts: Opts): Promise<T> {
     }
     const error = new Error(detail);
     (error as Error & { status: number }).status = response.status;
+    if (response.status >= 500) reportError(error, { path, status: response.status });
     throw error;
   }
   if (response.status === 204) return undefined as T;

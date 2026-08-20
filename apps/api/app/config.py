@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     slack_webhook_url: str = ""
     posthog_host: str = ""
     posthog_project_api_key: str = ""
+    sentry_dsn: str = ""
+    release: str = "pollscale-api@2.0.0"
+    cors_origins: str = ""
 
     @property
     def is_production(self) -> bool:

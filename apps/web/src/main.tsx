@@ -16,6 +16,7 @@ createRoot(document.getElementById("root")!).render(
           <Route path="terms" element={<Legal kind="terms" />} />
           <Route path="guidelines" element={<Legal kind="guidelines" />} />
           <Route path="support" element={<Legal kind="support" />} />
+          <Route path="delete-account" element={<Legal kind="deleteAccount" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

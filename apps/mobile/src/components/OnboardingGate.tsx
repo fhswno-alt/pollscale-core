@@ -1,11 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { trackFunnel } from "../lib/analytics";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
 import type { TopicNode } from "../lib/types";
 import { colors, fonts, radius } from "../theme";
+import { DateOfBirthField } from "./DateOfBirthField";
+import { RipplePressable } from "./RipplePressable";
 
 function parentCount(tree: TopicNode[], selected: Set<string>) {
   let count = 0;
@@ -18,6 +21,7 @@ function parentCount(tree: TopicNode[], selected: Set<string>) {
 
 export function OnboardingGate() {
   const session = useSession();
+  const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [firstName, setFirstName] = useState(session.user?.first_name || "");
   const [handle, setHandle] = useState(session.user?.handle_set ? session.user.handle : "");
@@ -89,17 +93,17 @@ export function OnboardingGate() {
         backgroundColor: colors.canvas,
       }}
     >
-      <ScrollView contentContainerStyle={{ padding: 22, paddingTop: 56, paddingBottom: 40 }}>
-        <Text style={{ color: colors.text, fontFamily: fonts.black, fontSize: 36, letterSpacing: -1.2 }}>
+      <ScrollView contentContainerStyle={{ padding: 22, paddingTop: Math.max(insets.top, 24) + 24, paddingBottom: Math.max(insets.bottom, 24) + 16 }}>
+        <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ color: colors.text, fontFamily: fonts.black, fontSize: 36, letterSpacing: -1.2 }}>
           {step === 0 ? "Your name" : step === 1 ? "Username" : step === 2 ? "Birthday" : step === 3 ? "City" : "Interests"}
         </Text>
-        <Text style={{ color: colors.muted, fontFamily: fonts.medium, marginTop: 8, marginBottom: 18 }}>
+        <Text allowFontScaling style={{ color: colors.muted, fontFamily: fonts.medium, marginTop: 8, marginBottom: 18 }}>
           {step === 0
             ? "First name is enough."
             : step === 1
               ? "2–24 letters, numbers, underscore. dave, admin, official and slurs are blocked."
               : step === 2
-                ? "You must be 13 or older. YYYY-MM-DD."
+                ? "You must be 13 or older. Use the date picker."
                 : step === 3
                   ? "Optional. Only boosts polls actually about that place."
                   : "Pick at least three parent topics. Open one to add subtopics."}
@@ -123,16 +127,7 @@ export function OnboardingGate() {
             style={field}
           />
         ) : null}
-        {step === 2 ? (
-          <TextInput
-            value={dob}
-            onChangeText={setDob}
-            placeholder="2000-04-21"
-            placeholderTextColor={colors.quiet}
-            keyboardType="numbers-and-punctuation"
-            style={field}
-          />
-        ) : null}
+        {step === 2 ? <DateOfBirthField value={dob} onChange={setDob} /> : null}
         {step === 3 ? (
           <TextInput
             value={city}
@@ -145,7 +140,9 @@ export function OnboardingGate() {
         {step === 4
           ? tree.map((parent) => (
               <View key={parent.id} style={{ marginBottom: 12 }}>
-                <Pressable
+                <RipplePressable
+                  accessibilityRole="button"
+                  accessibilityLabel={parent.name}
                   onPress={() => {
                     toggle(parent.id);
                     setOpen(open === parent.id ? null : parent.id);
@@ -159,12 +156,14 @@ export function OnboardingGate() {
                     padding: 16,
                   }}
                 >
-                  <Text style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>{parent.name}</Text>
-                </Pressable>
+                  <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold, fontSize: 20 }}>{parent.name}</Text>
+                </RipplePressable>
                 {open === parent.id
                   ? parent.children.map((child) => (
-                      <Pressable
+                      <RipplePressable
                         key={child.id}
+                        accessibilityRole="button"
+                        accessibilityLabel={child.name}
                         onPress={() => toggle(child.id)}
                         style={{ paddingVertical: 10, paddingLeft: 16 }}
                       >
@@ -177,14 +176,16 @@ export function OnboardingGate() {
                         >
                           {child.name}
                         </Text>
-                      </Pressable>
+                      </RipplePressable>
                     ))
                   : null}
               </View>
             ))
           : null}
-        {error ? <Text style={{ color: "#FF8B8B", marginTop: 8 }}>{error}</Text> : null}
-        <Pressable
+        {error ? <Text allowFontScaling style={{ color: "#FF8B8B", marginTop: 8 }}>{error}</Text> : null}
+        <RipplePressable
+          accessibilityRole="button"
+          accessibilityLabel={step < 4 ? "Continue" : "Save interests"}
           onPress={() => {
             if (step < 4) {
               if (step === 0 && !firstName.trim()) return;
@@ -213,14 +214,19 @@ export function OnboardingGate() {
             justifyContent: "center",
           }}
         >
-          <Text style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 16 }}>
+          <Text allowFontScaling style={{ color: colors.ink, fontFamily: fonts.bold, fontSize: 16 }}>
             {step < 4 ? "Continue" : `Save · ${parents} topics`}
           </Text>
-        </Pressable>
+        </RipplePressable>
         {step > 0 ? (
-          <Pressable onPress={() => setStep(step - 1)} style={{ marginTop: 16, alignItems: "center" }}>
-            <Text style={{ color: colors.quiet, fontFamily: fonts.medium }}>Back</Text>
-          </Pressable>
+          <RipplePressable
+            accessibilityRole="button"
+            accessibilityLabel="Back"
+            onPress={() => setStep(step - 1)}
+            style={{ marginTop: 16, alignItems: "center" }}
+          >
+            <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>Back</Text>
+          </RipplePressable>
         ) : null}
       </ScrollView>
     </View>

@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -12,6 +12,7 @@ from app.models import Poll, PollDwell, PollFeedback, PollOption, Report, Skip, 
 from app.moderation import result_to_dict, score_content
 from app.notifications import notify
 from app.polls import guest_status, guest_votes_used, load_poll, next_poll, present_poll
+from app.rate_limit import limit_vote
 from app.schemas import DwellIn, FeedOut, FeedbackIn, PollCard, PollCreate, ReportIn, ReportOut, VoteIn
 
 router = APIRouter(tags=["polls"])
@@ -112,7 +113,7 @@ def delete_poll(poll_id: str, db: DbDep, user: UserDep) -> None:
     track("poll_deleted", user=user, properties={"poll_id": poll.id})
 
 
-@router.post("/polls/{poll_id}/vote", response_model=FeedOut)
+@router.post("/polls/{poll_id}/vote", response_model=FeedOut, dependencies=[Depends(limit_vote)])
 def vote_poll(
     poll_id: str,
     body: VoteIn,
@@ -164,7 +165,7 @@ def vote_poll(
     return _feed(db, user, device_id, loaded)
 
 
-@router.post("/polls/{poll_id}/skip", response_model=FeedOut)
+@router.post("/polls/{poll_id}/skip", response_model=FeedOut, dependencies=[Depends(limit_vote)])
 def skip_poll(poll_id: str, db: DbDep, device_id: DeviceDep, user: OptionalUser) -> FeedOut:
     poll = load_poll(db, poll_id)
     if poll is None or poll.status != "live":

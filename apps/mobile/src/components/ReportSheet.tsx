@@ -1,9 +1,12 @@
 import { useState } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Text, View } from "react-native";
 
+import { errorMessage, reportError } from "../lib/errors";
 import { api } from "../lib/api";
 import { useSession } from "../lib/session";
 import { colors, fonts, radius } from "../theme";
+import { RipplePressable } from "./RipplePressable";
+import { Sheet } from "./Sheet";
 
 const REASONS = [
   ["spam", "Spam"],
@@ -25,50 +28,65 @@ export function ReportSheet({
 }) {
   const session = useSession();
   const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
 
   const send = async (reason: string) => {
-    await api.report(pollId, reason, session.deviceId, session.token);
-    setDone(true);
+    setError("");
+    try {
+      await api.report(pollId, reason, session.deviceId, session.token);
+      setDone(true);
+    } catch (err) {
+      reportError(err, { context: "report_poll", reason });
+      setError(errorMessage(err, "Couldn’t send that report."));
+    }
   };
 
   return (
-    <View
-      style={{
-        position: "absolute",
-        left: 0,
-        right: 0,
-        bottom: 0,
-        top: 0,
-        backgroundColor: "rgba(0,0,0,0.55)",
-        justifyContent: "flex-end",
-      }}
-    >
-      <View style={{ backgroundColor: colors.sheet, padding: 22, borderTopLeftRadius: 28, borderTopRightRadius: 28 }}>
-        <Text style={{ color: colors.text, fontFamily: fonts.black, fontSize: 32 }}>Report</Text>
-        {done ? (
-          <Text style={{ color: colors.muted, marginVertical: 16 }}>Thanks. It’s in the queue.</Text>
-        ) : (
-          <View style={{ marginTop: 12, gap: 8 }}>
-            {REASONS.map(([value, label]) => (
-              <Pressable
-                key={value}
-                onPress={() => send(value)}
-                style={{
-                  borderWidth: 1,
-                  borderColor: colors.hairline,
-                  borderRadius: radius.card,
-                  padding: 14,
-                }}
-              >
-                <Text style={{ color: colors.text, fontFamily: fonts.bold }}>{label}</Text>
-              </Pressable>
-            ))}
-          </View>
-        )}
-        <Pressable onPress={onClose} style={{ alignItems: "center", padding: 16 }}>
-          <Text style={{ color: colors.quiet, fontFamily: fonts.medium }}>Close</Text>
-        </Pressable>
-      </View>
-    </View>
+    <Sheet onClose={onClose}>
+      <Text allowFontScaling maxFontSizeMultiplier={1.3} style={{ color: colors.text, fontFamily: fonts.black, fontSize: 32 }}>
+        Report
+      </Text>
+      {done ? (
+        <Text allowFontScaling style={{ color: colors.muted, marginVertical: 16 }}>
+          Thanks. It’s in the queue.
+        </Text>
+      ) : (
+        <View style={{ marginTop: 12, gap: 8 }}>
+          {REASONS.map(([value, label]) => (
+            <RipplePressable
+              key={value}
+              accessibilityRole="button"
+              accessibilityLabel={`Report as ${label}`}
+              onPress={() => send(value)}
+              style={{
+                borderWidth: 1,
+                borderColor: colors.hairline,
+                borderRadius: radius.card,
+                padding: 14,
+              }}
+            >
+              <Text allowFontScaling style={{ color: colors.text, fontFamily: fonts.bold }}>
+                {label}
+              </Text>
+            </RipplePressable>
+          ))}
+        </View>
+      )}
+      {error ? (
+        <Text allowFontScaling style={{ color: "#FF8B8B", marginTop: 10 }}>
+          {error}
+        </Text>
+      ) : null}
+      <RipplePressable
+        accessibilityRole="button"
+        accessibilityLabel="Close report sheet"
+        onPress={onClose}
+        style={{ alignItems: "center", padding: 16 }}
+      >
+        <Text allowFontScaling style={{ color: colors.quiet, fontFamily: fonts.medium }}>
+          Close
+        </Text>
+      </RipplePressable>
+    </Sheet>
   );
 }

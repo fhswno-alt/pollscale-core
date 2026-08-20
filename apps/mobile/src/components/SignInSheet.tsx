@@ -1,58 +1,104 @@
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import * as AppleAuthentication from "expo-apple-authentication";
+import * as Linking from "expo-linking";
+import { useEffect, useState } from "react";
+import { Platform, StyleSheet, Text } from "react-native";
 
+import { errorMessage, isCancel, reportError } from "../lib/errors";
+import { LEGAL_URLS } from "../lib/legal";
 import { useSession } from "../lib/session";
 import { colors, fonts, radius } from "../theme";
+import { RipplePressable } from "./RipplePressable";
+import { Sheet } from "./Sheet";
 
 export function SignInSheet({ visible, dimmed }: { visible: boolean; dimmed?: boolean }) {
   const { signInApple, signInGoogle } = useSession();
+  const [appleReady, setAppleReady] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    AppleAuthentication.isAvailableAsync()
+      .then(setAppleReady)
+      .catch(() => setAppleReady(false));
+  }, []);
+
   if (!visible) return null;
 
+  const onApple = async () => {
+    setError("");
+    try {
+      await signInApple();
+    } catch (err) {
+      if (isCancel(err)) return;
+      reportError(err, { context: "apple_button" });
+      setError(errorMessage(err, "Apple Sign In failed. Try again."));
+    }
+  };
+
+  const onGoogle = async () => {
+    setError("");
+    try {
+      await signInGoogle();
+    } catch (err) {
+      if (isCancel(err)) return;
+      reportError(err, { context: "google_button" });
+      setError(errorMessage(err, "Google Sign In failed. Try again."));
+    }
+  };
+
   return (
-    <View style={StyleSheet.absoluteFill} pointerEvents="box-none">
-      {dimmed ? <View style={styles.dim} /> : null}
-      <View style={styles.sheet}>
-        <View style={styles.grab} />
-        <Text style={styles.headline}>Keep going.</Text>
-        <Text style={styles.sub}>Three free votes. Sign in to vote, post, and follow.</Text>
-        <Pressable style={styles.apple} onPress={signInApple}>
-          <Text style={styles.appleMark}></Text>
-          <Text style={styles.appleText}>Continue with Apple</Text>
-        </Pressable>
-        <Pressable style={styles.google} onPress={signInGoogle}>
-          <Text style={styles.g}>G</Text>
-          <Text style={styles.googleText}>Continue with Google</Text>
-        </Pressable>
-        <Text style={styles.terms}>By continuing you agree to the terms.</Text>
-      </View>
-    </View>
+    <Sheet dimmed={dimmed}>
+      <Text
+        allowFontScaling
+        maxFontSizeMultiplier={1.3}
+        style={styles.headline}
+      >
+        Keep going.
+      </Text>
+      <Text allowFontScaling style={styles.sub}>
+        Three free votes. Sign in to vote, post, and follow.
+      </Text>
+      {appleReady ? (
+        <AppleAuthentication.AppleAuthenticationButton
+          buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+          buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+          cornerRadius={radius.pill}
+          style={styles.appleOfficial}
+          onPress={onApple}
+        />
+      ) : null}
+      <RipplePressable
+        accessibilityRole="button"
+        accessibilityLabel="Continue with Google"
+        style={styles.google}
+        onPress={onGoogle}
+      >
+        <Text style={styles.g}>G</Text>
+        <Text allowFontScaling style={styles.googleText}>
+          Continue with Google
+        </Text>
+      </RipplePressable>
+      {error ? (
+        <Text allowFontScaling style={styles.error}>
+          {error}
+        </Text>
+      ) : null}
+      <Text allowFontScaling style={styles.terms}>
+        By continuing you agree to{" "}
+        <Text style={styles.link} onPress={() => Linking.openURL(LEGAL_URLS.terms)}>
+          Terms
+        </Text>
+        {" and "}
+        <Text style={styles.link} onPress={() => Linking.openURL(LEGAL_URLS.privacy)}>
+          Privacy
+        </Text>
+        .
+      </Text>
+    </Sheet>
   );
 }
 
 const styles = StyleSheet.create({
-  dim: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: "rgba(0,0,0,0.55)",
-  },
-  sheet: {
-    position: "absolute",
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: colors.sheet,
-    borderTopLeftRadius: radius.sheet,
-    borderTopRightRadius: radius.sheet,
-    paddingHorizontal: 22,
-    paddingTop: 12,
-    paddingBottom: 28,
-  },
-  grab: {
-    alignSelf: "center",
-    width: 44,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: colors.accent,
-    marginBottom: 22,
-  },
   headline: {
     color: colors.text,
     fontFamily: fonts.black,
@@ -68,20 +114,11 @@ const styles = StyleSheet.create({
     marginBottom: 26,
     lineHeight: 22,
   },
-  apple: {
+  appleOfficial: {
+    width: "100%",
     height: 54,
-    borderRadius: radius.pill,
-    borderWidth: 1,
-    borderColor: colors.hairlineStrong,
-    backgroundColor: colors.ink,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
     marginBottom: 12,
   },
-  appleMark: { color: colors.text, fontSize: 20, marginTop: -2 },
-  appleText: { color: colors.text, fontFamily: fonts.bold, fontSize: 16 },
   google: {
     height: 54,
     borderRadius: radius.pill,
@@ -93,6 +130,13 @@ const styles = StyleSheet.create({
   },
   g: { color: "#4285F4", fontFamily: fonts.black, fontSize: 18 },
   googleText: { color: colors.ink, fontFamily: fonts.bold, fontSize: 16 },
+  error: {
+    color: "#FF8B8B",
+    fontFamily: fonts.medium,
+    fontSize: 14,
+    marginTop: 12,
+    textAlign: "center",
+  },
   terms: {
     textAlign: "center",
     color: colors.quiet,
@@ -100,4 +144,5 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 18,
   },
+  link: { color: colors.accent, fontFamily: fonts.medium },
 });

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo } from "react";
 import {
   Animated,
   ImageBackground,
@@ -26,7 +26,7 @@ export function OptionCard({
   winning?: boolean;
   onPress?: () => void;
 }) {
-  const width = useRef(new Animated.Value(0)).current;
+  const width = useMemo(() => new Animated.Value(0), []);
   const percent = option.percent ?? 0;
 
   useEffect(() => {
@@ -45,6 +45,10 @@ export function OptionCard({
 
   return (
     <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={results ? `${option.label}, ${percent} percent` : `Vote ${option.label}`}
+      accessibilityState={{ disabled: !!results }}
+      android_ripple={{ color: "rgba(232,255,61,0.18)" }}
       onPress={results ? undefined : onPress}
       style={[styles.card, { height, borderColor }]}
     >
@@ -52,14 +56,14 @@ export function OptionCard({
         <ImageBackground source={{ uri: option.image_url }} style={styles.fill} imageStyle={styles.image}>
           <View style={styles.scrim} />
           {results ? <ResultOverlay option={option} width={width} winning={!!winning} photo /> : (
-            <Text style={styles.photoLabel}>{option.label}</Text>
+            <Text allowFontScaling style={styles.photoLabel}>{option.label}</Text>
           )}
         </ImageBackground>
       ) : results ? (
         <ResultOverlay option={option} width={width} winning={!!winning} />
       ) : (
         <View style={styles.center}>
-          <Text style={styles.textLabel}>{option.label}</Text>
+          <Text allowFontScaling style={styles.textLabel}>{option.label}</Text>
         </View>
       )}
     </Pressable>
@@ -110,7 +114,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1 },
   image: { borderRadius: radius.card - 1 },
   scrim: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: "rgba(0,0,0,0.18)",
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 16 },

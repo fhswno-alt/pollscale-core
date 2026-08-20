@@ -19,7 +19,9 @@ DATABASE_URL=postgresql+psycopg2://pollscale:pollscale@127.0.0.1:5432/pollscale_
   pnpm test:api
 ```
 
-Local `.env` should set `ALLOW_DEV_AUTH=true` and `EXPO_PUBLIC_ALLOW_DEV_AUTH=true`. Production must leave both unset/false so Apple/Google are the only consumer path.
+`.env.example` ships `ALLOW_DEV_AUTH=false` and `EXPO_PUBLIC_ALLOW_DEV_AUTH=false`. On a laptop, set both to `true` if you need `/auth/dev`. Production (`POLLSCALE_ENV=production`) refuses to boot if either is true, if `JWT_SECRET` is default/short, or if `CORS_ORIGINS` is missing/`*`.
+
+Public host: `https://api.pollscale.com`. CORS should be `https://pollscale.com,https://www.pollscale.com`. Rate limits and Sentry: [observability.md](observability.md).
 
 Admin is separate: `ADMIN_BOOTSTRAP_EMAIL` / `ADMIN_BOOTSTRAP_PASSWORD`, then TOTP. See [admin.md](admin.md).
 
@@ -34,4 +36,8 @@ docker compose --profile analytics up --build
 # PostHog UI http://localhost:8010
 ```
 
-Push on a simulator: grant the permission prompt. Expo Go on a physical device can receive the v2 types. The simulator often cannot display a real push; the row still lands in **You → Notifications**.
+Push is opt-in. The app does not request notification permission on first login. Copy lives on **You** and **Notifications**; the user taps *Turn on notifications*. Pass `extra.eas.projectId` (from `npx eas init`) into `getExpoPushTokenAsync` when present. Android uses channel `pollscale-default`. Expo Go on a physical device can receive the v2 types. The simulator often cannot display a real push; the row still lands in **You → Notifications**.
+
+JS hotfix later: `apps/mobile/eas.json` + `npx eas init`. No EAS login is required to compile or export.
+
+Mobile Expo SDK is 57 (from 53). See [observability.md](observability.md).
