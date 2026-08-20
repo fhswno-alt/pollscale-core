@@ -1,0 +1,166 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pollscale
+      POSTGRES_PASSWORD: pollscale
+      POSTGRES_DB: pollscale
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pollscale"]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: pollscale
+      MINIO_ROOT_PASSWORD: pollscale-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio:/data
+
+  api:
+    build: ./apps/api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg2://pollscale:pollscale@db:5432/pollscale
+      JWT_SECRET: ${JWT_SECRET:-dev-only-change-me}
+      PUBLIC_BASE_URL: http://localhost:8000
+      AUTO_SEED: "true"
+      ALLOW_DEV_AUTH: ${ALLOW_DEV_AUTH:-true}
+      POLLSCALE_ENV: ${POLLSCALE_ENV:-development}
+      ADMIN_BOOTSTRAP_EMAIL: ${ADMIN_BOOTSTRAP_EMAIL:-dave@pollscale.com}
+      ADMIN_BOOTSTRAP_PASSWORD: ${ADMIN_BOOTSTRAP_PASSWORD:-change-me-now}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MEDIA_DIR: /data/media
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY:-}
+      S3_SECRET_KEY: ${S3_SECRET_KEY:-}
+      S3_BUCKET: ${S3_BUCKET:-pollscale}
+      S3_REGION: ${S3_REGION:-fsn1}
+      S3_PUBLIC_URL: ${S3_PUBLIC_URL:-}
+      APPLE_CLIENT_ID: ${APPLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      SLACK_WEBHOOK_URL: ${SLACK_WEBHOOK_URL:-}
+      POSTHOG_HOST: ${POSTHOG_HOST:-http://posthog:8000}
+      POSTHOG_PROJECT_API_KEY: ${POSTHOG_PROJECT_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - media:/data/media
+
+  posthog-db:
+    profiles: ["analytics"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: posthog
+      POSTGRES_PASSWORD: posthog
+      POSTGRES_DB: posthog
+    volumes:
+      - posthog-pg:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U posthog"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  posthog-redis:
+    profiles: ["analytics"]
+    image: redis:7-alpine
+
+  posthog-clickhouse:
+    profiles: ["analytics"]
+    image: clickhouse/clickhouse-server:24.8-alpine
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    volumes:
+      - posthog-ch:/var/lib/clickhouse
+
+  posthog-kafka:
+    profiles: ["analytics"]
+    image: redpandadata/redpanda:v24.2.18
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - 1G
+      - --reserve-memory
+      - 0M
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - internal://posthog-kafka:9092
+    volumes:
+      - posthog-kafka:/var/lib/redpanda/data
+
+  posthog:
+    profiles: ["analytics"]
+    image: posthog/posthog:latest
+    depends_on:
+      posthog-db:
+        condition: service_healthy
+      posthog-redis:
+        condition: service_started
+      posthog-clickhouse:
+        condition: service_started
+      posthog-kafka:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      REDIS_URL: redis://posthog-redis:6379/
+      CLICKHOUSE_HOST: posthog-clickhouse
+      CLICKHOUSE_SECURE: "false"
+      KAFKA_HOSTS: posthog-kafka:9092
+      SECRET_KEY: ${POSTHOG_SECRET:-dev-only-posthog-secret}
+      SITE_URL: http://localhost:8010
+      DISABLE_SECURE_SSL_REDIRECT: "1"
+      IS_BEHIND_PROXY: "false"
+      SKIP_SERVICE_VERSION_REQUIREMENTS: "1"
+      OBJECT_STORAGE_ENABLED: "false"
+    ports:
+      - "8010:8000"
+
+  posthog-worker:
+    profiles: ["analytics"]
+    image: posthog/posthog:latest
+    command: ./bin/docker-worker-celery --with-scheduler
+    depends_on:
+      posthog:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgres://posthog:posthog@posthog-db:5432/posthog
+      REDIS_URL: redis://posthog-redis:6379/
+      CLICKHOUSE_HOST: posthog-clickhouse
+      CLICKHOUSE_SECURE: "false"
+      KAFKA_HOSTS: posthog-kafka:9092
+      SECRET_KEY: ${POSTHOG_SECRET:-dev-only-posthog-secret}
+      SITE_URL: http://localhost:8010
+      DISABLE_SECURE_SSL_REDIRECT: "1"
+      SKIP_SERVICE_VERSION_REQUIREMENTS: "1"
+      OBJECT_STORAGE_ENABLED: "false"
+
+volumes:
+  pgdata:
+  minio:
+  media:
+  posthog-pg:
+  posthog-ch:
+  posthog-kafka:
